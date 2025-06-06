@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { motion } from "framer-motion";
+import { motion, AnimatePresence } from "framer-motion";
 import { Card, CardHeader, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -9,14 +9,33 @@ import { Label } from "@/components/ui/label";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { Shield, Mail, Clock, ArrowRight, FileText, Calendar, Eye, UserX } from "lucide-react";
-import { useMutation, useQuery } from "@tanstack/react-query";
+import { 
+  Shield, 
+  Mail, 
+  Clock, 
+  ArrowRight,
+  FileText,
+  Calendar,
+  Eye,
+  UserX,
+  Share2,
+  Loader2,
+  File,
+  LucideIcon,
+  Grid2x2,
+  Users,
+  Lock,
+} from "lucide-react";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { trustedContactService } from "@/services/trusted-contact";
+import { trustedContactService, SharedVaultEntry } from "@/services/trusted-contact";
 import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { format, addDays } from "date-fns";
+import { SharedEntryDialog } from "@/components/shared-entry/shared-entry-dialog";
+import { cn } from "@/lib/utils";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 
 const requestAccessSchema = z.object({
   email: z.string().email("Please enter a valid email address"),
@@ -24,8 +43,79 @@ const requestAccessSchema = z.object({
 
 type RequestAccessFormValues = z.infer<typeof requestAccessSchema>;
 
+type CategoryKey = 'FINANCE' | 'HEALTH' | 'PERSONAL' | 'NOTES';
+type TabValue = 'shared';
+
+const categoryConfig: Record<CategoryKey, {
+  icon: LucideIcon;
+  color: string;
+  bgColor: string;
+}> = {
+  FINANCE: { 
+    icon: FileText,
+    color: "text-yellow-500",
+    bgColor: "bg-yellow-500/10" 
+  },
+  HEALTH: { 
+    icon: FileText,
+    color: "text-rose-500",
+    bgColor: "bg-rose-500/10"
+  },
+  PERSONAL: { 
+    icon: FileText,
+    color: "text-blue-500",
+    bgColor: "bg-blue-500/10"
+  },
+  NOTES: { 
+    icon: FileText,
+    color: "text-purple-500",
+    bgColor: "bg-purple-500/10"
+  },
+};
+
+// Frontend-specific shared entry type
+interface SharedEntryView extends Omit<SharedVaultEntry, 'category' | 'createdAt' | 'updatedAt'> {
+  category: CategoryKey;
+  createdAt: string;
+  updatedAt: string;
+  file?: {
+    name: string;
+    mimeType: string;
+    size?: number;
+  };
+}
+
+interface RequestAccessViewProps {
+  vaultOwner: {
+    email: string;
+    unlockAfterDays: number;
+    lastRequestedAt: Date | null;
+    isUnlockActive: boolean;
+  };
+  onSubmit: (data: RequestAccessFormValues) => void;
+  isPending: boolean;
+  form: any;
+}
+
+interface SharedEntriesViewProps {
+  sharedEntries: SharedEntryView[];
+  vaultOwner: {
+    email: string;
+    unlockAfterDays: number;
+    isUnlockActive: boolean;
+  };
+  handleEntryClick: (entry: SharedEntryView) => void;
+  selectedEntry: SharedEntryView | null;
+  isModalOpen: boolean;
+  setIsModalOpen: (open: boolean) => void;
+  setSelectedEntry: (entry: SharedEntryView | null) => void;
+}
+
 export default function EmergencyAccessPage() {
   const [email, setEmail] = React.useState<string>("");
+  const [selectedEntry, setSelectedEntry] = React.useState<SharedEntryView | null>(null);
+  const [isModalOpen, setIsModalOpen] = React.useState(false);
+  const [activeTab, setActiveTab] = React.useState<TabValue>('shared');
   
   const form = useForm<RequestAccessFormValues>({
     resolver: zodResolver(requestAccessSchema),
@@ -40,18 +130,19 @@ export default function EmergencyAccessPage() {
     queryFn: () => trustedContactService.checkAccess(),
   });
 
-  // Query for shared entries
-  const { data: sharedEntries, isLoading: isLoadingEntries } = useQuery({
+  // Query for shared entries with type conversion
+  const { data: sharedEntries = [], isLoading: isLoadingEntries } = useQuery({
     queryKey: ["shared-entries"],
-    queryFn: () => trustedContactService.getSharedEntries(),
+    queryFn: async () => {
+      const entries = await trustedContactService.getSharedEntries();
+      return entries.map(entry => ({
+        ...entry,
+        createdAt: new Date(entry.createdAt).toISOString(),
+        updatedAt: new Date(entry.updatedAt).toISOString(),
+        category: entry.category.toUpperCase() as CategoryKey
+      }));
+    },
     enabled: accessCheck?.isTrustedContact ?? false,
-  });
-
-  // Query for access status
-  const { data: accessStatus, refetch: refetchStatus } = useQuery({
-    queryKey: ["access-status", email],
-    queryFn: () => email ? trustedContactService.requestAccess(email) : null,
-    enabled: false,
   });
 
   const { mutate: requestAccess, isPending } = useMutation({
@@ -59,13 +150,8 @@ export default function EmergencyAccessPage() {
       trustedContactService.requestAccess(values.email),
     onSuccess: (response) => {
       setEmail(form.getValues("email"));
-      if (response.status === "granted") {
-        toast.success("Access granted! Loading shared entries...");
-        refetchStatus();
-      } else {
-        toast.success("Access request sent successfully. The vault owner will be notified.");
-        refetchStatus();
-      }
+      toast.success("Access request sent successfully. The vault owner will be notified.");
+      form.reset();
     },
     onError: (error: any) => {
       toast.error(error.response?.data?.message || "Failed to request access");
@@ -76,255 +162,341 @@ export default function EmergencyAccessPage() {
     requestAccess(data);
   }
 
-  // Calculate progress percentage if we have status data
-  const progressPercentage = React.useMemo(() => {
-    if (!accessStatus || accessStatus.status === "granted") return 100;
-    return Math.min((accessStatus.inactiveDays || 0) / (accessStatus.unlockAfterDays || 1) * 100, 100);
-  }, [accessStatus]);
-
-  // Calculate next check time (midnight tonight)
-  const nextCheckTime = React.useMemo(() => {
-    const now = new Date();
-    const tomorrow = addDays(now, 1);
-    tomorrow.setHours(0, 0, 0, 0);
-    return tomorrow;
-  }, []);
+  const handleEntryClick = (entry: SharedEntryView) => {
+    setSelectedEntry(entry);
+    setIsModalOpen(true);
+  };
 
   // Loading state
   if (isCheckingAccess || isLoadingEntries) {
     return <LoadingState />;
   }
 
-  // If user is not a trusted contact, show the not-authorized view
-  if (!accessCheck?.isTrustedContact) {
-    return (
-      <div className="min-h-screen w-full grid place-items-center p-4 relative bg-background">
-        <Card className="w-full max-w-md">
-          <CardHeader className="space-y-3 text-center pb-8">
-            <div className="w-12 h-12 mx-auto bg-yellow-100 rounded-xl flex items-center justify-center">
-              <UserX className="w-6 h-6 text-yellow-600" />
-            </div>
-            <div className="space-y-2">
-              <h2 className="text-2xl font-bold tracking-tight">Not a Trusted Contact</h2>
-              <p className="text-sm text-muted-foreground">
-                You are not currently designated as a trusted contact for any vault.
-              </p>
-            </div>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="bg-muted p-4 rounded-lg space-y-3">
-              <h3 className="font-medium">What is a Trusted Contact?</h3>
-              <ul className="list-disc list-inside space-y-1 text-sm text-muted-foreground">
-                <li>A person designated to access someone's vault in emergencies</li>
-                <li>Must be explicitly added by a vault owner</li>
-                <li>Can request access if the owner becomes inactive</li>
-                <li>Receives notifications about access requests and grants</li>
-              </ul>
-            </div>
-            <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
-              <p className="text-sm text-yellow-800">
-                If you believe you should have access, please ensure the vault owner has added your correct email address as their trusted contact.
-              </p>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-    );
+  // Step 1: Not a trusted contact
+  if (!accessCheck?.isTrustedContact || !accessCheck.vaultOwners.length) {
+    return <NotTrusteeView />;
   }
 
-  // Show shared entries if we have access
-  if (sharedEntries?.length || (accessStatus?.status === "granted")) {
-    return <SharedEntriesView entries={sharedEntries || []} />;
+  const vaultOwner = accessCheck.vaultOwners[0];
+
+  // Step 2: Trusted contact without access
+  if (!vaultOwner.isUnlockActive) {
+    return <RequestAccessView vaultOwner={vaultOwner} onSubmit={onSubmit} isPending={isPending} form={form} />;
   }
 
-  // Show vault owner information and request access form
+  // Step 3: Has access, show shared entries
+  return <SharedEntriesView 
+    sharedEntries={sharedEntries} 
+    vaultOwner={vaultOwner} 
+    handleEntryClick={handleEntryClick}
+    selectedEntry={selectedEntry}
+    isModalOpen={isModalOpen}
+    setIsModalOpen={setIsModalOpen}
+    setSelectedEntry={setSelectedEntry}
+  />;
+}
+
+// Step 1: Not a trusted contact view
+function NotTrusteeView() {
   return (
-    <div className="min-h-screen w-full grid place-items-center p-4 relative bg-background overflow-hidden">
-      {/* Gradient blobs */}
-      <div className="absolute inset-0 w-full h-full overflow-hidden z-0">
-        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[800px] h-[800px] opacity-20">
-          <div className="absolute inset-0 bg-primary rounded-full blur-3xl animate-blob" />
-          <div className="absolute inset-0 bg-secondary rounded-full blur-3xl animate-blob animation-delay-2000" />
-          <div className="absolute inset-0 bg-accent rounded-full blur-3xl animate-blob animation-delay-4000" />
-        </div>
-      </div>
-
-      {/* Content */}
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.5 }}
-        className="relative z-10 w-full max-w-md"
-      >
-        <Card>
-          <CardHeader className="space-y-3 text-center pb-8">
-            <div className="w-12 h-12 mx-auto bg-primary/10 rounded-xl flex items-center justify-center">
-              <Shield className="w-6 h-6 text-primary" />
-            </div>
-            <div className="space-y-1">
-              <h2 className="text-2xl font-bold tracking-tight">Emergency Access</h2>
-              <p className="text-sm text-muted-foreground">
-                You are a trusted contact for the following vaults:
-              </p>
-            </div>
-          </CardHeader>
-          <CardContent className="space-y-6">
-            {/* List vault owners */}
-            <div className="space-y-4">
-              {accessCheck.vaultOwners.map((owner) => (
-                <div key={owner.email} className="p-4 border rounded-lg space-y-2">
-                  <div className="flex items-center justify-between">
-                    <span className="font-medium">{owner.email}</span>
-                    <Badge variant={owner.isUnlockActive ? "default" : "secondary"}>
-                      {owner.isUnlockActive ? "Access Granted" : "Pending"}
-                    </Badge>
-                  </div>
-                  <div className="text-sm text-muted-foreground">
-                    <div className="flex items-center gap-2">
-                      <Clock className="h-4 w-4" />
-                      <span>Unlock after {owner.unlockAfterDays} days of inactivity</span>
-                    </div>
-                    {owner.lastRequestedAt && (
-                      <div className="mt-1">
-                        Last requested: {format(new Date(owner.lastRequestedAt), "PPp")}
-                      </div>
-                    )}
-                  </div>
-                  {!owner.isUnlockActive && (
-                    <Button
-                      className="w-full mt-2"
-                      onClick={() => {
-                        form.setValue("email", owner.email);
-                        onSubmit({ email: owner.email });
-                      }}
-                    >
-                      Request Access
-                    </Button>
-                  )}
-                </div>
-              ))}
-            </div>
-
-            {email && accessStatus && (
-              <div className="space-y-4">
-                <div className="space-y-2">
-                  <div className="flex items-center justify-between text-sm">
-                    <span className="text-muted-foreground">Access Request Status</span>
-                    <span className="font-medium">{Math.round(progressPercentage)}%</span>
-                  </div>
-                  <Progress value={progressPercentage} className="h-2" />
-                  <p className="text-sm text-muted-foreground">
-                    Access will be granted after {accessStatus.unlockAfterDays} days of inactivity. 
-                    Current inactive days: {accessStatus.inactiveDays}
-                  </p>
-                  <p className="text-sm text-muted-foreground">
-                    Next status check: {format(nextCheckTime, "PPpp")}
-                  </p>
-                </div>
-                <div className="flex items-center justify-between">
-                  <Button variant="outline" onClick={() => setEmail("")}>
-                    New Request
-                  </Button>
-                  <Button onClick={() => refetchStatus()}>
-                    Check Status
-                  </Button>
-                </div>
-              </div>
-            )}
-          </CardContent>
-        </Card>
-      </motion.div>
+    <div className="container mx-auto flex items-center justify-center min-h-[calc(100vh-16rem)]">
+      <Card className="max-w-md w-full">
+        <CardHeader className="text-center space-y-3">
+          <div className="w-12 h-12 mx-auto bg-primary/10 rounded-xl flex items-center justify-center">
+            <Shield className="w-6 h-6 text-primary" />
+          </div>
+          <div className="space-y-1">
+            <h2 className="text-2xl font-bold tracking-tight">Emergency Access</h2>
+            <p className="text-sm text-muted-foreground">
+              You are not currently a trusted contact for any vaults. When someone adds you as their trusted contact, you'll be able to request emergency access to their vault.
+            </p>
+          </div>
+        </CardHeader>
+      </Card>
     </div>
   );
 }
 
-function SharedEntriesView({ entries }: { entries: any[] }) {
-  return (
-    <div className="min-h-screen w-full p-4 bg-background">
-      <div className="max-w-4xl mx-auto space-y-8">
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="space-y-2"
-        >
-          <h1 className="text-3xl font-bold tracking-tight">Shared Vault Entries</h1>
-          <p className="text-muted-foreground">
-            Access to these entries has been granted through emergency access.
-          </p>
-        </motion.div>
+// Step 2: Request Access View
+function RequestAccessView({ vaultOwner, onSubmit, isPending, form }: RequestAccessViewProps) {
+  const queryClient = useQueryClient();
+  
+  const { mutate: grantAccess, isPending: isGranting } = useMutation({
+    mutationFn: () => trustedContactService.grantAccess(vaultOwner.email),
+    onSuccess: () => {
+      toast.success("Access granted successfully");
+      queryClient.invalidateQueries({ queryKey: ["trusted-contact"] });
+    },
+    onError: (error: any) => {
+      toast.error(error.response?.data?.message || "Failed to grant access");
+    },
+  });
 
-        {entries.length === 0 ? (
-          <Card className="p-6 text-center">
-            <div className="w-12 h-12 rounded-full bg-primary/10 mx-auto grid place-items-center mb-4">
-              <Shield className="h-6 w-6 text-primary" />
-            </div>
-            <h3 className="font-semibold text-xl mb-2">No Shared Entries Yet</h3>
-            <p className="text-sm text-muted-foreground">
-              You have been granted access, but no entries have been shared yet.
-            </p>
-          </Card>
-        ) : (
-          <div className="grid gap-4">
-            {entries.map((entry, index) => (
-              <motion.div
-                key={entry.id}
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: index * 0.1 }}
-              >
-                <Card>
-                  <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                    <div className="flex items-center space-x-2">
-                      <FileText className="h-4 w-4 text-muted-foreground" />
-                      <h3 className="font-semibold">{entry.title}</h3>
-                    </div>
-                    <Badge variant="outline">
-                      {entry.category}
-                    </Badge>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="space-y-4">
-                      <div className="text-sm text-muted-foreground">
-                        {entry.content}
-                      </div>
-                      {entry.file && (
-                        <Button variant="outline" size="sm" className="mt-2">
-                          <Eye className="mr-2 h-4 w-4" />
-                          View File
-                        </Button>
-                      )}
-                      <div className="flex items-center justify-between text-xs text-muted-foreground">
-                        <div className="flex items-center">
-                          <Calendar className="mr-1 h-3 w-3" />
-                          {format(new Date(entry.createdAt), "PPP")}
-                        </div>
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-              </motion.div>
-            ))}
+  const { mutate: requestAccess, isPending: isRequesting } = useMutation({
+    mutationFn: () => trustedContactService.requestAccess(vaultOwner.email),
+    onSuccess: (response) => {
+      if (response.status === "granted") {
+        toast.success("Access granted! Loading shared entries...");
+      } else {
+        toast.success("Access request sent successfully. The vault owner will be notified.");
+      }
+      queryClient.invalidateQueries({ queryKey: ["trusted-contact"] });
+    },
+    onError: (error: any) => {
+      toast.error(error.response?.data?.message || "Failed to request access");
+    },
+  });
+
+  return (
+    <div className="container mx-auto flex items-center justify-center min-h-[calc(100vh-16rem)]">
+      <Card className="max-w-md w-full">
+        <CardHeader className="text-center space-y-3">
+          <div className="w-12 h-12 mx-auto bg-primary/10 rounded-xl flex items-center justify-center">
+            <Shield className="w-6 h-6 text-primary" />
           </div>
-        )}
+          <div className="space-y-1">
+            <h2 className="text-2xl font-bold tracking-tight">Request Emergency Access</h2>
+            <p className="text-sm text-muted-foreground">
+              You are a trusted contact for {vaultOwner.email}'s vault. Request emergency access below.
+            </p>
+          </div>
+          <div className="mt-4 p-4 rounded-lg border bg-muted/50 space-y-2 text-sm">
+            <div className="flex items-center gap-2">
+              <Clock className="h-4 w-4 text-muted-foreground" />
+              <span>Access will be granted after {vaultOwner.unlockAfterDays} days of inactivity</span>
+            </div>
+            {vaultOwner.lastRequestedAt && (
+              <div className="flex items-center gap-2">
+                <Calendar className="h-4 w-4 text-muted-foreground" />
+                <span>Last requested: {format(new Date(vaultOwner.lastRequestedAt), "MMM d, yyyy")}</span>
+              </div>
+            )}
+          </div>
+        </CardHeader>
+        <CardContent>
+          <div className="space-y-4">
+            <Button 
+              className="w-full" 
+              disabled={isRequesting}
+              onClick={() => requestAccess()}
+            >
+              {isRequesting ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Requesting Access...
+                </>
+              ) : (
+                <>
+                  <Shield className="mr-2 h-4 w-4" />
+                  Request Instant Access
+                </>
+              )}
+            </Button>
+
+          </div>
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
+
+// Step 3: Shared Entries View
+function SharedEntriesView({ sharedEntries, vaultOwner, handleEntryClick, selectedEntry, isModalOpen, setIsModalOpen, setSelectedEntry }: SharedEntriesViewProps) {
+  return (
+    <div className="container mx-auto max-w-7xl space-y-6">
+      {/* Top Cards Section */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        {/* Emergency Access Card */}
+        <Card className="overflow-hidden">
+          <CardHeader className="space-y-2 p-4">
+            <div className="flex items-center gap-3">
+              <div className="p-2 bg-primary/10 rounded-md">
+                <Lock className="h-4 w-4 text-primary" />
+              </div>
+              <div>
+                <h3 className="font-semibold">Emergency Access</h3>
+                <p className="text-xs text-muted-foreground">
+                  Access shared vault entries during emergencies
+                </p>
+              </div>
+              <Badge variant="outline" className="bg-blue-500/10 text-blue-500 ml-auto">
+                <Share2 className="mr-1 h-3 w-3" />
+                {sharedEntries.length} Shared
+              </Badge>
+            </div>
+          </CardHeader>
+        </Card>
+
+        {/* Vault Owner Card */}
+        <Card className="overflow-hidden">
+          <CardHeader className="space-y-2 p-4">
+            <div className="flex items-center gap-3">
+              <div className="p-2 bg-primary/10 rounded-md">
+                <Shield className="h-4 w-4 text-primary" />
+              </div>
+              <div>
+                <h4 className="font-semibold">{vaultOwner.email}</h4>
+                <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                  <Clock className="h-3 w-3" />
+                  <span>Unlock after {vaultOwner.unlockAfterDays} days</span>
+                </div>
+              </div>
+              <Badge variant={vaultOwner.isUnlockActive ? "default" : "secondary"} className="ml-auto whitespace-nowrap">
+                {vaultOwner.isUnlockActive ? "Access Granted" : "Pending"}
+              </Badge>
+            </div>
+          </CardHeader>
+        </Card>
       </div>
+
+      {/* Shared Entries Grid */}
+      <Tabs defaultValue="shared" className="space-y-4">
+        <TabsList className="w-full max-w-[200px]">
+          <TabsTrigger value="shared" className="w-full">
+            <Grid2x2 className="h-4 w-4 mr-2" />
+            Shared Entries
+          </TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="shared" className="space-y-6">
+          <AnimatePresence mode="popLayout">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4 gap-4 sm:gap-6">
+              {sharedEntries.length === 0 ? (
+                <motion.div
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -20 }}
+                  className="col-span-full flex flex-col items-center justify-center py-12 text-center"
+                >
+                  <File className="h-12 w-12 text-muted-foreground mb-4" />
+                  <h3 className="text-lg font-semibold">No shared entries</h3>
+                  <p className="text-sm text-muted-foreground mt-1">
+                    Shared entries will appear here once access is granted.
+                  </p>
+                </motion.div>
+              ) : (
+                sharedEntries.map((entry, index) => {
+                  const categoryKey = entry.category.toUpperCase() as CategoryKey;
+                  const CategoryIcon = categoryConfig[categoryKey]?.icon || FileText;
+                  return (
+                    <motion.div
+                      key={entry.id}
+                      layout
+                      initial={{ opacity: 0, y: 20 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, y: -20 }}
+                      transition={{ duration: 0.2, delay: index * 0.05 }}
+                    >
+                      <Card 
+                        className="overflow-hidden transition-all duration-200 hover:shadow-lg hover:border-primary/50 h-[180px] flex flex-col group/card relative cursor-pointer"
+                        onClick={() => handleEntryClick(entry)}
+                      >
+                        <CardHeader className="space-y-2 p-3">
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <Badge variant="secondary" className="bg-blue-500/10 text-blue-500 h-6 px-2 py-0 text-xs font-medium">
+                                <Share2 className="mr-1 h-3 w-3" />
+                                Shared
+                              </Badge>
+                              {entry.file && (
+                                <Badge variant="outline" className="h-6 px-2 py-0">
+                                  <File className="mr-1 h-3 w-3" />
+                                  {entry.file.name.split('.').pop()?.toUpperCase()}
+                                </Badge>
+                              )}
+                            </div>
+                            <div className="flex items-center gap-1">
+                              <button 
+                                className="h-6 w-6 rounded-md hover:bg-muted flex items-center justify-center"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleEntryClick(entry);
+                                }}
+                              >
+                                <Eye className="h-3.5 w-3.5 text-muted-foreground" />
+                              </button>
+                            </div>
+                          </div>
+                        </CardHeader>
+                        <CardContent className="flex-1 flex flex-col p-3 pt-0">
+                          <div className="min-h-0 flex-1">
+                            <h3 className="font-semibold text-sm leading-tight tracking-tight group-hover/card:text-primary transition-colors mb-1.5 truncate pr-6">
+                              {entry.title}
+                              <motion.div
+                                initial={false}
+                                animate={{ rotate: 45 }}
+                                className="opacity-0 group-hover/card:opacity-100 transition-opacity absolute right-3 top-[4.5rem]"
+                              >
+                                <Share2 className="h-3.5 w-3.5 text-muted-foreground" />
+                              </motion.div>
+                            </h3>
+                            <p className="text-xs text-muted-foreground line-clamp-2">
+                              [Content hidden]
+                            </p>
+                          </div>
+                          <div className="mt-auto pt-2 flex items-center justify-between text-xs text-muted-foreground border-t">
+                            <div className="flex items-center gap-2">
+                              <div className="flex items-center gap-1">
+                                <Calendar className="h-3 w-3" />
+                                <span className="truncate">
+                                  Created: {format(new Date(entry.createdAt), "MMM d, yyyy")}
+                                </span>
+                              </div>
+                            </div>
+                            <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                              <span className="truncate">
+                                From: {entry.vaultOwner.email}
+                              </span>
+                            </div>
+                          </div>
+                        </CardContent>
+                        <div className="absolute inset-0 bg-gradient-to-t from-background/80 via-background/20 to-background/0 opacity-0 group-hover/card:opacity-100 transition-opacity pointer-events-none" />
+                      </Card>
+                    </motion.div>
+                  );
+                })
+              )}
+            </div>
+          </AnimatePresence>
+        </TabsContent>
+      </Tabs>
+
+      {selectedEntry && (
+        <SharedEntryDialog
+          entry={selectedEntry}
+          open={isModalOpen}
+          onOpenChange={(open) => {
+            setIsModalOpen(open);
+            if (!open) {
+              setTimeout(() => {
+                setSelectedEntry(null);
+              }, 300);
+            }
+          }}
+        />
+      )}
     </div>
   );
 }
 
 function LoadingState() {
   return (
-    <div className="min-h-screen w-full p-4 bg-background">
-      <div className="max-w-4xl mx-auto space-y-8">
-        <div className="space-y-2">
-          <Skeleton className="h-8 w-64" />
-          <Skeleton className="h-4 w-96" />
-        </div>
-        <div className="space-y-4">
-          {[1, 2, 3].map((i) => (
-            <Skeleton key={i} className="h-32 w-full" />
-          ))}
-        </div>
-      </div>
+    <div className="container mx-auto flex items-center justify-center min-h-[calc(100vh-16rem)]">
+      <Card className="max-w-md w-full">
+        <CardHeader className="text-center space-y-3">
+          <div className="w-12 h-12 mx-auto">
+            <Skeleton className="h-12 w-12 rounded-xl" />
+          </div>
+          <div className="space-y-2">
+            <Skeleton className="h-8 w-3/4 mx-auto" />
+            <Skeleton className="h-4 w-full" />
+            <Skeleton className="h-4 w-5/6 mx-auto" />
+          </div>
+        </CardHeader>
+        <CardContent>
+          <Skeleton className="h-10 w-full" />
+        </CardContent>
+      </Card>
     </div>
   );
 } 

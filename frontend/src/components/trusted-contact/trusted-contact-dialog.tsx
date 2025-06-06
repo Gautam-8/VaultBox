@@ -28,9 +28,7 @@ export function TrustedContactDialog() {
         <DialogHeader>
           <DialogTitle>Trusted Contact Management</DialogTitle>
           <DialogDescription className="space-y-4">
-            <p>
-              Set up and manage your trusted contact for emergency vault access.
-            </p>
+            Set up and manage your trusted contact for emergency vault access.
             <div className="mt-4 p-4 rounded-lg border bg-muted/50 space-y-3">
               <h4 className="font-medium">Important Information</h4>
               <ul className="list-disc list-inside space-y-2 text-sm text-muted-foreground">
