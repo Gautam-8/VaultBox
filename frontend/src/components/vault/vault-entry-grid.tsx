@@ -228,18 +228,12 @@ export function VaultEntryGrid() {
                         </div>
                         <div className="flex items-center gap-1.5">
                           <button 
-                            className="h-6 w-6 rounded-md hover:bg-muted flex items-center justify-center opacity-0 group-hover/card:opacity-100 transition-opacity"
-                            title="View history"
-                          >
-                            <History className="h-3.5 w-3.5 text-muted-foreground" />
-                          </button>
-                          <button 
                             className="h-6 w-6 rounded-md hover:bg-muted flex items-center justify-center"
                             title={entry.maskedPreview ? "Show preview" : "Hide preview"}
                           >
                             {entry.maskedPreview ? 
-                              <Eye className="h-3.5 w-3.5 text-muted-foreground" /> : 
-                              <EyeOff className="h-3.5 w-3.5 text-muted-foreground" />
+                              <Lock className="h-3.5 w-3.5 text-muted-foreground" /> : 
+                              <Lock className="h-3.5 w-3.5 text-muted-foreground rotate-[15deg]" />
                             }
                           </button>
                         </div>
