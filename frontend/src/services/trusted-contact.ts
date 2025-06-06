@@ -1,4 +1,5 @@
 import api from '@/lib/api';
+import { VaultEntryVisibility, ContentType } from "./vault";
 
 export interface TrustedContact {
   id: string;
@@ -26,9 +27,15 @@ export interface SharedVaultEntry {
   title: string;
   category: string;
   encryptedContent: string;
+  contentType: ContentType;
   visibility: string;
   createdAt: Date;
   updatedAt: Date;
+  file?: {
+    name: string;
+    size: number;
+    mimeType: string;
+  } | null;
   vaultOwner: {
     email: string;
   };
@@ -75,6 +82,13 @@ export const trustedContactService = {
   getSharedEntries: async () => {
     const response = await api.get<SharedVaultEntry[]>('/trusted-contacts/shared-entries');
     return response.data;
+  },
+
+  downloadSharedEntry: async (entryId: string) => {
+    const response = await api.get(`/trusted-contacts/shared-entries/${entryId}/download`, {
+      responseType: 'blob'
+    });
+    return response;
   },
 
   grantAccess: async (contactEmail: string) => {

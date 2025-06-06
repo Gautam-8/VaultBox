@@ -315,7 +315,7 @@ export function EntryDetailsDialog({ entry, open, onOpenChange }: EntryDetailsDi
   return (
     <>
       <Dialog open={open} onOpenChange={onOpenChange}>
-        <DialogContent className="sm:max-w-[600px] max-h-[85vh] overflow-y-auto">
+        <DialogContent className="sm:max-w-[600px]">
           {isLoading ? (
             <div className="flex flex-col items-center justify-center py-8 space-y-4">
               <VisuallyHidden>
@@ -486,89 +486,72 @@ export function EntryDetailsDialog({ entry, open, onOpenChange }: EntryDetailsDi
 
                 <TabsContent value="edit" className="mt-4">
                   <Form {...form}>
-                    <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-                      <FormField
-                        control={form.control}
-                        name="title"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Title</FormLabel>
-                            <FormControl>
-                              <Input {...field} />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-
-                      <FormField
-                        control={form.control}
-                        name="category"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Category</FormLabel>
-                            <Select onValueChange={field.onChange} defaultValue={field.value}>
-                              <FormControl>
-                                <SelectTrigger>
-                                  <SelectValue />
-                                </SelectTrigger>
-                              </FormControl>
-                              <SelectContent>
-                                {Object.entries(VaultEntryCategory).map(([key, value]) => (
-                                  <SelectItem key={key} value={value}>
-                                    {value}
-                                  </SelectItem>
-                                ))}
-                              </SelectContent>
-                            </Select>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-
-                      {entryDetails?.contentType === ContentType.TEXT && (
+                    <div className="flex flex-col h-full">
+                      <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4 max-h-[calc(60vh-4rem)] overflow-y-auto pr-4 modern-scroll">
                         <FormField
                           control={form.control}
-                          name="content"
+                          name="title"
                           render={({ field }) => (
                             <FormItem>
-                              <FormLabel>Content</FormLabel>
+                              <FormLabel>Title</FormLabel>
                               <FormControl>
-                                <Textarea
-                                  className="min-h-[100px]"
-                                  {...field}
-                                />
+                                <Input {...field} />
                               </FormControl>
                               <FormMessage />
                             </FormItem>
                           )}
                         />
-                      )}
 
-                      <FormField
-                        control={form.control}
-                        name="autoDeleteDate"
-                        render={({ field }) => (
-                          <FormItem className="flex flex-col">
-                            <FormLabel>Auto-Delete Date and Time (Optional)</FormLabel>
-                            <FormControl>
-                              <DateTimePicker
-                                date={field.value}
-                                onDateChange={field.onChange}
-                              />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-
-                      {form.watch("visibility") === VaultEntryVisibility.UNLOCK_AFTER && (
                         <FormField
                           control={form.control}
-                          name="unlockAfter"
+                          name="category"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>Category</FormLabel>
+                              <Select onValueChange={field.onChange} defaultValue={field.value}>
+                                <FormControl>
+                                  <SelectTrigger>
+                                    <SelectValue />
+                                  </SelectTrigger>
+                                </FormControl>
+                                <SelectContent>
+                                  {Object.entries(VaultEntryCategory).map(([key, value]) => (
+                                    <SelectItem key={key} value={value}>
+                                      {value}
+                                    </SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+
+                        {entryDetails?.contentType === ContentType.TEXT && (
+                          <FormField
+                            control={form.control}
+                            name="content"
+                            render={({ field }) => (
+                              <FormItem>
+                                <FormLabel>Content</FormLabel>
+                                <FormControl>
+                                  <Textarea
+                                    className="min-h-[100px]"
+                                    {...field}
+                                  />
+                                </FormControl>
+                                <FormMessage />
+                              </FormItem>
+                            )}
+                          />
+                        )}
+
+                        <FormField
+                          control={form.control}
+                          name="autoDeleteDate"
                           render={({ field }) => (
                             <FormItem className="flex flex-col">
-                              <FormLabel>Unlock After Date and Time</FormLabel>
+                              <FormLabel>Auto-Delete Date and Time (Optional)</FormLabel>
                               <FormControl>
                                 <DateTimePicker
                                   date={field.value}
@@ -579,109 +562,89 @@ export function EntryDetailsDialog({ entry, open, onOpenChange }: EntryDetailsDi
                             </FormItem>
                           )}
                         />
-                      )}
 
-                      <FormField
-                        control={form.control}
-                        name="visibility"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Visibility</FormLabel>
-                            <Select onValueChange={field.onChange} defaultValue={field.value}>
-                              <FormControl>
-                                <SelectTrigger>
-                                  <SelectValue />
-                                </SelectTrigger>
-                              </FormControl>
-                              <SelectContent>
-                                {Object.entries(VaultEntryVisibility).map(([key, value]) => (
-                                  <SelectItem key={key} value={value}>
-                                    {value.replace(/([A-Z])/g, " $1").trim()}
-                                  </SelectItem>
-                                ))}
-                              </SelectContent>
-                            </Select>
-                            <p className="text-sm text-muted-foreground mt-2">
-                              {field.value === VaultEntryVisibility.PRIVATE && (
-                                "This entry will be accessible only to you. You can read and update the content"
-                              )}
-                              {field.value === VaultEntryVisibility.SHARED && (
-                                "This entry can be viewed and updated by you, and viewed by your trusted contact."
-                              )}
-                              {field.value === VaultEntryVisibility.UNLOCK_AFTER && (
-                                "This entry will be viewable and updatable for you, and viewable by your trusted contact after the unlock period."
-                              )}
-                            </p>
-                            <FormMessage />
-                          </FormItem>
+                        {form.watch("visibility") === VaultEntryVisibility.UNLOCK_AFTER && (
+                          <FormField
+                            control={form.control}
+                            name="unlockAfter"
+                            render={({ field }) => (
+                              <FormItem className="flex flex-col">
+                                <FormLabel>Unlock After Date and Time</FormLabel>
+                                <FormControl>
+                                  <DateTimePicker
+                                    date={field.value}
+                                    onDateChange={field.onChange}
+                                  />
+                                </FormControl>
+                                <FormMessage />
+                              </FormItem>
+                            )}
+                          />
                         )}
-                      />
 
-                      <div className="flex justify-end space-x-2 pt-4">
+                        <FormField
+                          control={form.control}
+                          name="visibility"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>Visibility</FormLabel>
+                              <Select onValueChange={field.onChange} defaultValue={field.value}>
+                                <FormControl>
+                                  <SelectTrigger>
+                                    <SelectValue />
+                                  </SelectTrigger>
+                                </FormControl>
+                                <SelectContent>
+                                  {Object.entries(VaultEntryVisibility).map(([key, value]) => (
+                                    <SelectItem key={key} value={value}>
+                                      {value.replace(/([A-Z])/g, " $1").trim()}
+                                    </SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
+                              <p className="text-sm text-muted-foreground mt-2">
+                                {field.value === VaultEntryVisibility.PRIVATE && (
+                                  "This entry will be accessible only to you. You can read and update the content"
+                                )}
+                                {field.value === VaultEntryVisibility.SHARED && (
+                                  "This entry can be viewed and updated by you, and viewed by your trusted contact."
+                                )}
+                                {field.value === VaultEntryVisibility.UNLOCK_AFTER && (
+                                  "This entry will be viewable and updatable for you, and viewable by your trusted contact after the unlock period."
+                                )}
+                              </p>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                      </form>
+                      <div className="flex justify-end gap-4 mt-4 pt-2 border-t">
                         <Button
                           type="button"
                           variant="outline"
-                          onClick={() => setActiveTab("view")}
+                          onClick={() => onOpenChange(false)}
+                          disabled={isUpdating}
                         >
                           Cancel
                         </Button>
-                        <Button 
+                        <Button
                           type="submit"
                           disabled={isUpdating}
-                          className="min-w-[100px] relative"
+                          onClick={form.handleSubmit(onSubmit)}
                         >
-                          <AnimatePresence mode="wait">
-                            {!isUpdating && (
-                              <motion.div
-                                key="default"
-                                initial={{ opacity: 0 }}
-                                animate={{ opacity: 1 }}
-                                exit={{ opacity: 0 }}
-                                className="flex items-center"
-                              >
-                                Save Changes
-                              </motion.div>
-                            )}
-                            {updateStep === 'encrypting' && (
-                              <motion.div
-                                key="encrypting"
-                                initial={{ opacity: 0 }}
-                                animate={{ opacity: 1 }}
-                                exit={{ opacity: 0 }}
-                                className="flex items-center absolute inset-0 justify-center"
-                              >
-                                <Shield className="mr-2 h-4 w-4 animate-pulse" />
-                                Encrypting...
-                              </motion.div>
-                            )}
-                            {updateStep === 'saving' && (
-                              <motion.div
-                                key="saving"
-                                initial={{ opacity: 0 }}
-                                animate={{ opacity: 1 }}
-                                exit={{ opacity: 0 }}
-                                className="flex items-center absolute inset-0 justify-center"
-                              >
-                                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                                Saving...
-                              </motion.div>
-                            )}
-                            {updateStep === 'done' && (
-                              <motion.div
-                                key="done"
-                                initial={{ opacity: 0 }}
-                                animate={{ opacity: 1 }}
-                                exit={{ opacity: 0 }}
-                                className="flex items-center absolute inset-0 justify-center"
-                              >
-                                <CheckCircle2 className="mr-2 h-4 w-4" />
-                                Done!
-                              </motion.div>
-                            )}
-                          </AnimatePresence>
+                          {isUpdating ? (
+                            <>
+                              {updateStep === 'encrypting' && 'Encrypting...'}
+                              {updateStep === 'saving' && 'Saving...'}
+                              {updateStep === 'done' && 'Saved!'}
+                              {!updateStep && 'Saving...'}
+                            </>
+                          ) : (
+                            'Save changes'
+                          )}
                         </Button>
                       </div>
-                    </form>
+                    </div>
                   </Form>
                 </TabsContent>
               </Tabs>

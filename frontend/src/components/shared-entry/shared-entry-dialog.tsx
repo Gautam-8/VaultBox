@@ -19,13 +19,28 @@ import {
   Calendar,
   Loader2,
   File as FileIcon,
-  LucideIcon
+  LucideIcon,
+  Download,
+  Shield,
+  AlertTriangle
 } from "lucide-react";
 import { format } from "date-fns";
 import { toast } from "sonner";
 import { motion } from "framer-motion";
 import { VisuallyHidden } from "@radix-ui/react-visually-hidden";
 import { cn } from "@/lib/utils";
+import { trustedContactService } from "@/services/trusted-contact";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { CountdownTimer } from "@/components/ui/countdown-timer";
+import { ContentType } from "@/types/vault";
+
+function formatFileSize(bytes: number): string {
+  if (bytes === 0) return '0 B';
+  const k = 1024;
+  const sizes = ['B', 'KB', 'MB', 'GB'];
+  const i = Math.floor(Math.log(bytes) / Math.log(k));
+  return `${parseFloat((bytes / Math.pow(k, i)).toFixed(1))} ${sizes[i]}`;
+}
 
 type CategoryKey = 'FINANCE' | 'HEALTH' | 'PERSONAL' | 'NOTES';
 
@@ -39,10 +54,14 @@ interface SharedEntry {
   vaultOwner: {
     email: string;
   };
+  contentType: ContentType;
   file?: {
     name: string;
     mimeType: string;
-  };
+    size?: number;
+  } | null;
+  autoDeleteDate?: string;
+  unlockAfter?: string;
 }
 
 interface SharedEntryDialogProps {
@@ -80,6 +99,8 @@ const categoryConfig: Record<CategoryKey, {
 
 export function SharedEntryDialog({ entry, open, onOpenChange }: SharedEntryDialogProps) {
   const [isContentMasked, setIsContentMasked] = React.useState(true);
+  const [isDownloading, setIsDownloading] = React.useState(false);
+  const [activeTab, setActiveTab] = React.useState<"details" | "content">("details");
 
   const handleCopyContent = async () => {
     if (!entry?.encryptedContent) return;
@@ -91,18 +112,54 @@ export function SharedEntryDialog({ entry, open, onOpenChange }: SharedEntryDial
     }
   };
 
+  const handleDownload = async () => {
+    if (!entry || entry.contentType !== ContentType.FILE || !entry.file) return;
+
+    try {
+      setIsDownloading(true);
+      
+      // Convert base64 to binary
+      const binaryStr = atob(entry.encryptedContent);
+      const bytes = new Uint8Array(binaryStr.length);
+      for (let i = 0; i < binaryStr.length; i++) {
+        bytes[i] = binaryStr.charCodeAt(i);
+      }
+      
+      // Create blob with proper mime type
+      const blob = new Blob([bytes], { type: entry.file.mimeType });
+      const url = window.URL.createObjectURL(blob);
+      
+      // Download with proper filename
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = entry.file.name;
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+      
+      toast.success("File downloaded successfully");
+    } catch (error) {
+      console.error('Download error:', error);
+      toast.error("Failed to download file");
+    } finally {
+      setIsDownloading(false);
+    }
+  };
+
   if (!entry) return null;
 
   const CategoryIcon = categoryConfig[entry.category]?.icon || FileText;
+  const isFile = entry.contentType === ContentType.FILE;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[600px] max-h-[85vh] overflow-y-auto">
+      <DialogContent className="sm:max-w-[600px]">
         <DialogHeader>
           <div className="flex items-center justify-between">
             <DialogTitle className="flex items-center gap-2">
               Shared Entry
-              {entry.file && (
+              {isFile && entry.file && (
                 <Badge variant="outline" className="h-6 px-2 py-0">
                   <FileIcon className="mr-1 h-3 w-3" />
                   {entry.file.name.split('.').pop()?.toUpperCase()}
@@ -127,71 +184,131 @@ export function SharedEntryDialog({ entry, open, onOpenChange }: SharedEntryDial
           </div>
         </DialogHeader>
 
-        <div className="space-y-4 mt-4">
-          <div>
-            <h3 className="text-lg font-semibold">{entry.title}</h3>
-            <p className="text-sm text-muted-foreground">
-              Shared by {entry.vaultOwner.email}
-            </p>
-            <p className="text-sm text-muted-foreground">
-              Created {format(new Date(entry.createdAt), "PPP")}
-            </p>
-          </div>
+        <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as "details" | "content")} className="mt-4">
+          <TabsList className="grid w-full grid-cols-2">
+            <TabsTrigger value="details">Details</TabsTrigger>
+            <TabsTrigger value="content">Content</TabsTrigger>
+          </TabsList>
 
-          <div className="space-y-2">
-            <div className="flex items-center justify-between">
-              <h4 className="text-sm font-medium">Content</h4>
-              <div className="flex items-center gap-2">
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="h-8 w-8 p-0"
-                  onClick={handleCopyContent}
-                >
-                  <Copy className="h-4 w-4" />
-                </Button>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="h-8 w-8 p-0"
-                  onClick={() => setIsContentMasked(!isContentMasked)}
-                >
-                  {isContentMasked ? (
-                    <Eye className="h-4 w-4" />
-                  ) : (
-                    <EyeOff className="h-4 w-4" />
-                  )}
-                </Button>
+          <TabsContent value="details" className="space-y-4 mt-4">
+            <div className="space-y-4">
+              <div>
+                <h3 className="text-lg font-semibold">{entry.title}</h3>
+                <p className="text-sm text-muted-foreground">
+                  Shared by {entry.vaultOwner.email}
+                </p>
+                <p className="text-sm text-muted-foreground">
+                  Created {format(new Date(entry.createdAt), "PPP")}
+                </p>
               </div>
-            </div>
 
-            <div className="relative">
-              <Textarea
-                value={entry.encryptedContent || ""}
-                className="min-h-[200px] font-mono"
-                readOnly
-              />
-              {isContentMasked && (
-                <div className="absolute inset-0 bg-background/80 backdrop-blur-[2px] flex items-center justify-center">
-                  <Button
-                    variant="outline"
-                    onClick={() => setIsContentMasked(false)}
-                  >
-                    <Eye className="h-4 w-4 mr-2" />
-                    Reveal Content
-                  </Button>
+              {entry.unlockAfter && (
+                <div className="flex items-center gap-2 p-2 rounded-md bg-yellow-500/5 border border-yellow-500/10">
+                  <AlertTriangle className="h-4 w-4 text-yellow-500" />
+                  <CountdownTimer 
+                    expiryDate={new Date(entry.unlockAfter)}
+                    className="text-sm text-yellow-500"
+                  />
                 </div>
               )}
-            </div>
-          </div>
 
-          <div className="flex items-center justify-between text-xs text-muted-foreground pt-4 border-t">
-            <div className="flex items-center gap-1">
-              <Calendar className="h-3 w-3" />
-              Last updated: {format(new Date(entry.updatedAt), "PPP")}
+              {entry.autoDeleteDate && (
+                <div className="flex items-center gap-2 p-2 rounded-md bg-destructive/5 border border-destructive/10">
+                  <AlertTriangle className="h-4 w-4 text-destructive" />
+                  <CountdownTimer 
+                    expiryDate={new Date(entry.autoDeleteDate)}
+                    className="text-sm text-destructive"
+                  />
+                </div>
+              )}
+
+              <div className="flex items-center justify-between text-xs text-muted-foreground pt-4 border-t">
+                <div className="flex items-center gap-1">
+                  <Calendar className="h-3 w-3" />
+                  Last updated: {format(new Date(entry.updatedAt), "PPP")}
+                </div>
+              </div>
             </div>
-          </div>
-        </div>
+          </TabsContent>
+
+          <TabsContent value="content" className="space-y-4 mt-4">
+            {isFile ? (
+              <div className="space-y-2">
+                <div className="bg-muted p-4 rounded-lg">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <FileIcon className="h-5 w-5 text-muted-foreground" />
+                      <span className="text-sm">{entry.file?.name}</span>
+                      <span className="text-xs text-muted-foreground">
+                        ({entry.file?.size ? formatFileSize(entry.file.size) : 'Unknown size'})
+                      </span>
+                    </div>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={handleDownload}
+                      disabled={isDownloading}
+                    >
+                      {isDownloading ? (
+                        <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                      ) : (
+                        <Download className="h-4 w-4 mr-2" />
+                      )}
+                      Download
+                    </Button>
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <h4 className="text-sm font-medium">Content</h4>
+                  <div className="flex items-center gap-2">
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-8 w-8 p-0"
+                      onClick={handleCopyContent}
+                    >
+                      <Copy className="h-4 w-4" />
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-8 w-8 p-0"
+                      onClick={() => setIsContentMasked(!isContentMasked)}
+                    >
+                      {isContentMasked ? (
+                        <Eye className="h-4 w-4" />
+                      ) : (
+                        <EyeOff className="h-4 w-4" />
+                      )}
+                    </Button>
+                  </div>
+                </div>
+
+                <div className="relative">
+                  <Textarea
+                    value={entry.encryptedContent || ""}
+                    className="min-h-[200px] font-mono"
+                    readOnly
+                  />
+                  {isContentMasked && (
+                    <div className="absolute inset-0 bg-background/80 backdrop-blur-[2px] flex items-center justify-center">
+                      <Button
+                        variant="outline"
+                        onClick={() => setIsContentMasked(false)}
+                      >
+                        <Eye className="h-4 w-4 mr-2" />
+                        Reveal Content
+                      </Button>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+          </TabsContent>
+        </Tabs>
       </DialogContent>
     </Dialog>
   );

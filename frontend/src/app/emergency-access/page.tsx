@@ -25,6 +25,7 @@ import {
   Grid2x2,
   Users,
   Lock,
+  AlertTriangle,
 } from "lucide-react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
@@ -36,6 +37,7 @@ import { format, addDays } from "date-fns";
 import { SharedEntryDialog } from "@/components/shared-entry/shared-entry-dialog";
 import { cn } from "@/lib/utils";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import { VaultEntryVisibility, ContentType } from "@/services/vault";
 
 const requestAccessSchema = z.object({
   email: z.string().email("Please enter a valid email address"),
@@ -74,15 +76,24 @@ const categoryConfig: Record<CategoryKey, {
 };
 
 // Frontend-specific shared entry type
-interface SharedEntryView extends Omit<SharedVaultEntry, 'category' | 'createdAt' | 'updatedAt'> {
+interface SharedEntryView {
+  id: string;
+  title: string;
   category: CategoryKey;
+  encryptedContent: string;
+  contentType: ContentType;
   createdAt: string;
   updatedAt: string;
+  visibility: VaultEntryVisibility;
+  unlockAfter?: string;
+  vaultOwner: {
+    email: string;
+  };
   file?: {
     name: string;
     mimeType: string;
     size?: number;
-  };
+  } | null;
 }
 
 interface RequestAccessViewProps {
@@ -139,7 +150,9 @@ export default function EmergencyAccessPage() {
         ...entry,
         createdAt: new Date(entry.createdAt).toISOString(),
         updatedAt: new Date(entry.updatedAt).toISOString(),
-        category: entry.category.toUpperCase() as CategoryKey
+        category: entry.category.toUpperCase() as CategoryKey,
+        visibility: entry.visibility as VaultEntryVisibility,
+        contentType: entry.contentType
       }));
     },
     enabled: accessCheck?.isTrustedContact ?? false,
@@ -378,6 +391,8 @@ function SharedEntriesView({ sharedEntries, vaultOwner, handleEntryClick, select
                 sharedEntries.map((entry, index) => {
                   const categoryKey = entry.category.toUpperCase() as CategoryKey;
                   const CategoryIcon = categoryConfig[categoryKey]?.icon || FileText;
+                  const isTimeLocked = entry.visibility === VaultEntryVisibility.UNLOCK_AFTER;
+                  
                   return (
                     <motion.div
                       key={entry.id}
@@ -388,69 +403,96 @@ function SharedEntriesView({ sharedEntries, vaultOwner, handleEntryClick, select
                       transition={{ duration: 0.2, delay: index * 0.05 }}
                     >
                       <Card 
-                        className="overflow-hidden transition-all duration-200 hover:shadow-lg hover:border-primary/50 h-[180px] flex flex-col group/card relative cursor-pointer"
-                        onClick={() => handleEntryClick(entry)}
+                        className="h-[190px] p-3 flex flex-col cursor-pointer hover:shadow-lg hover:border-primary/50 transition-all duration-200"
+                        onClick={() => {
+                          if (isTimeLocked) {
+                            toast.info("This entry will be available after the unlock date");
+                          } else {
+                            handleEntryClick(entry);
+                          }
+                        }}
                       >
-                        <CardHeader className="space-y-2 p-3">
-                          <div className="flex items-center justify-between">
-                            <div className="flex items-center gap-2 flex-wrap">
-                              <Badge variant="secondary" className="bg-blue-500/10 text-blue-500 h-6 px-2 py-0 text-xs font-medium">
+                        {/* Row 1: Category, Visibility & Lock */}
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-1.5">
+                            <div className={cn(
+                              "p-1 rounded-md",
+                              categoryConfig[categoryKey].bgColor
+                            )}>
+                              <CategoryIcon className={cn(
+                                "h-3 w-3",
+                                categoryConfig[categoryKey].color
+                              )} />
+                            </div>
+                            <span className="text-xs">
+                              {entry.category}
+                            </span>
+                          </div>
+                          <Badge 
+                            variant="secondary"
+                            className={cn(
+                              "h-5 px-2 text-xs",
+                              isTimeLocked 
+                                ? "bg-yellow-500/10 text-yellow-500"
+                                : "bg-blue-500/10 text-blue-500"
+                            )}
+                          >
+                            {isTimeLocked ? (
+                              <>
+                                <Clock className="mr-1 h-3 w-3" />
+                                Time Lock
+                              </>
+                            ) : (
+                              <>
                                 <Share2 className="mr-1 h-3 w-3" />
                                 Shared
-                              </Badge>
-                              {entry.file && (
-                                <Badge variant="outline" className="h-6 px-2 py-0">
-                                  <File className="mr-1 h-3 w-3" />
-                                  {entry.file.name.split('.').pop()?.toUpperCase()}
-                                </Badge>
-                              )}
+                              </>
+                            )}
+                          </Badge>
+                        </div>
+
+                        {/* Row 2: Title & File Size */}
+                        <div className="flex justify-between items-center mt-3">
+                          <h3 className="text-sm font-medium truncate flex-1 mr-2">
+                            {entry.title}
+                          </h3>
+                          {entry.file && !isTimeLocked && (
+                            <div className="text-xs text-muted-foreground shrink-0">
+                              {entry.file.name.split('.').pop()?.toUpperCase()}
+                            </div>
+                          )}
+                        </div>
+
+                        {/* Row 3: Content or Time Lock Info */}
+                        {isTimeLocked ? (
+                          <div className="space-y-0.5 mt-2">
+                            <div className="flex items-center gap-1">
+                              <Calendar className="h-3 w-3 text-muted-foreground" />
+                              <span className="text-xs text-muted-foreground">
+                                {entry.unlockAfter && (
+                                  `Unlocks ${format(new Date(entry.unlockAfter), "MMM d, h:mm a")}`
+                                )}
+                              </span>
                             </div>
                             <div className="flex items-center gap-1">
-                              <button 
-                                className="h-6 w-6 rounded-md hover:bg-muted flex items-center justify-center"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  handleEntryClick(entry);
-                                }}
-                              >
-                                <Eye className="h-3.5 w-3.5 text-muted-foreground" />
-                              </button>
-                            </div>
-                          </div>
-                        </CardHeader>
-                        <CardContent className="flex-1 flex flex-col p-3 pt-0">
-                          <div className="min-h-0 flex-1">
-                            <h3 className="font-semibold text-sm leading-tight tracking-tight group-hover/card:text-primary transition-colors mb-1.5 truncate pr-6">
-                              {entry.title}
-                              <motion.div
-                                initial={false}
-                                animate={{ rotate: 45 }}
-                                className="opacity-0 group-hover/card:opacity-100 transition-opacity absolute right-3 top-[4.5rem]"
-                              >
-                                <Share2 className="h-3.5 w-3.5 text-muted-foreground" />
-                              </motion.div>
-                            </h3>
-                            <p className="text-xs text-muted-foreground line-clamp-2">
-                              [Content hidden]
-                            </p>
-                          </div>
-                          <div className="mt-auto pt-2 flex items-center justify-between text-xs text-muted-foreground border-t">
-                            <div className="flex items-center gap-2">
-                              <div className="flex items-center gap-1">
-                                <Calendar className="h-3 w-3" />
-                                <span className="truncate">
-                                  Created: {format(new Date(entry.createdAt), "MMM d, yyyy")}
-                                </span>
-                              </div>
-                            </div>
-                            <div className="flex items-center gap-1 text-xs text-muted-foreground">
-                              <span className="truncate">
-                                From: {entry.vaultOwner.email}
+                              <AlertTriangle className="h-3 w-3 text-yellow-500" />
+                              <span className="text-xs text-yellow-500">
+                                Content locked until unlock date
                               </span>
                             </div>
                           </div>
-                        </CardContent>
-                        <div className="absolute inset-0 bg-gradient-to-t from-background/80 via-background/20 to-background/0 opacity-0 group-hover/card:opacity-100 transition-opacity pointer-events-none" />
+                        ) : (
+                          <div className="mt-2 flex items-center gap-2">
+                            <Eye className="h-3 w-3 text-muted-foreground" />
+                            <span className="text-xs text-muted-foreground">Click to view content</span>
+                          </div>
+                        )}
+
+                        {/* Row 4: Created & Updated Dates */}
+                        <div className="mt-auto pt-2 flex justify-between text-[10px] text-muted-foreground border-t">
+                          <span>Created: {format(new Date(entry.createdAt), "MMM d, yyyy")}</span>
+                          <span>From: {entry.vaultOwner.email}</span>
+                        </div>
                       </Card>
                     </motion.div>
                   );

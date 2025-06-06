@@ -7,6 +7,7 @@ import { EmailService } from '../email/email.service';
 import { User } from '../users/entities/user.entity';
 import { VaultEntry, VaultEntryVisibility } from '../vault/entities/vault-entry.entity';
 import { SharedVaultEntry } from './interfaces/shared-vault-entry.interface';
+import { In } from 'typeorm';
 
 @Injectable()
 export class TrustedContactsService {
@@ -173,7 +174,7 @@ export class TrustedContactsService {
       const vaultEntries = await this.vaultEntryRepository.find({
         where: {
           userId: contact.userId,
-          visibility: VaultEntryVisibility.SHARED,
+          visibility: In([VaultEntryVisibility.SHARED, VaultEntryVisibility.UNLOCK_AFTER]),
         },
         relations: ['user'], // Include vault owner details
       });
@@ -184,9 +185,11 @@ export class TrustedContactsService {
         title: entry.title,
         category: entry.category,
         encryptedContent: entry.encryptedContent,
+        contentType: entry.contentType,
         visibility: entry.visibility,
         createdAt: entry.createdAt,
         updatedAt: entry.updatedAt,
+        file: entry.file,
         vaultOwner: {
           email: contact.user.email,
         }
