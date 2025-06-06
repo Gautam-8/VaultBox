@@ -253,11 +253,11 @@ export function VaultEntryGrid() {
                             {entry.category}
                           </span>
                         </div>
-                        {entry.visibility === VaultEntryVisibility.UNLOCK_AFTER && (
+                        {entry.visibility === VaultEntryVisibility.UNLOCK_AFTER && entry.unlockAfter && (
                           <div className="flex items-center gap-1.5">
                             <Calendar className="h-3.5 w-3.5 text-muted-foreground" />
                             <span className="text-xs text-muted-foreground">
-                              Unlocks {format(new Date(entry.createdAt), "MMM d")}
+                              Unlocks {format(new Date(entry.unlockAfter), "MMM d, h:mm a")}
                             </span>
                           </div>
                         )}
