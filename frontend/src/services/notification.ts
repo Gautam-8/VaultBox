@@ -2,7 +2,7 @@ import api from "@/lib/api";
 
 export interface Notification {
   id: string;
-  type: "ACCESS_REQUEST" | "INACTIVITY_WARNING";
+  type: "ACCESS_REQUEST" | "INACTIVITY_WARNING" | "ACCESS_GRANTED" | "ENTRY_EXPIRING" | "TRUSTED_CONTACT_ADDED";
   title: string;
   message: string;
   data?: Record<string, any>;

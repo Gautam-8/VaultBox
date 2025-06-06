@@ -40,7 +40,7 @@ import { toast } from "sonner";
 import { FileUpload } from "@/components/ui/file-upload";
 import { motion, AnimatePresence } from "framer-motion";
 
-const MAX_FILE_SIZE = 50 * 1024 * 1024; // 50MB
+const MAX_FILE_SIZE = 50 * 1024; // 50KB
 const ACCEPTED_FILE_TYPES = {
   "application/pdf": ".pdf",
   "image/jpeg": ".jpg,.jpeg",
@@ -239,6 +239,11 @@ export function NewEntryDialog() {
                           accept={Object.values(ACCEPTED_FILE_TYPES).join(",")}
                           onChange={(e) => {
                             const file = e.target.files?.[0];
+                            if (file && file.size > MAX_FILE_SIZE) {
+                              toast.error("File size must be less than 50KB");
+                              e.target.value = '';
+                              return;
+                            }
                             onChange(file);
                             if (file) {
                               form.setValue("content", file.name);

@@ -47,6 +47,32 @@ export class NotificationsService {
     return this.notificationRepository.save(notification);
   }
 
+  async createAccessGrantedNotification(userId: string, vaultOwnerEmail: string) {
+    const notification = this.notificationRepository.create({
+      userId,
+      type: NotificationType.ACCESS_GRANTED,
+      title: 'Emergency Access Granted',
+      message: `You have been granted emergency access to ${vaultOwnerEmail}'s vault.`,
+      data: { vaultOwnerEmail },
+      isRead: false,
+    });
+
+    return this.notificationRepository.save(notification);
+  }
+
+  async createTrustedContactAddedNotification(userId: string, vaultOwnerEmail: string) {
+    const notification = this.notificationRepository.create({
+      userId,
+      type: NotificationType.TRUSTED_CONTACT_ADDED,
+      title: 'Added as Trusted Contact',
+      message: `${vaultOwnerEmail} has added you as their trusted contact for emergency vault access.`,
+      data: { vaultOwnerEmail },
+      isRead: false,
+    });
+
+    return this.notificationRepository.save(notification);
+  }
+
   async createEntryExpiringNotification(userId: string, entryTitle: string) {
     return this.create(
       userId,

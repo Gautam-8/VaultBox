@@ -67,7 +67,13 @@ export class TrustedContactsService {
       userId,
     });
 
-    // Notify the trusted contact
+    // Create notification for trusted contact
+    await this.notificationsService.createTrustedContactAddedNotification(
+      targetUser.id,
+      currentUser.email
+    );
+
+    // Send email notification
     await this.emailService.sendTrustedContactAddedEmail(contactEmail);
     
     return savedContact;
@@ -321,6 +327,19 @@ export class TrustedContactsService {
 
     trustedContact.isUnlockActive = true;
     await this.trustedContactRepository.save(trustedContact);
+
+    // Get the trusted contact user to create notification
+    const contactUser = await this.userRepository.findOne({
+      where: { email: contactEmail }
+    });
+
+    if (contactUser) {
+      // Create notification for trusted contact
+      await this.notificationsService.createAccessGrantedNotification(
+        contactUser.id,
+        trustedContact.user.email
+      );
+    }
 
     // Send access granted email
     await this.emailService.sendAccessGrantedEmail(

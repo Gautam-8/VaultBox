@@ -27,20 +27,20 @@ export function TrustedContactDialog() {
       <DialogContent className="sm:max-w-[600px]">
         <DialogHeader>
           <DialogTitle>Trusted Contact Management</DialogTitle>
-          <DialogDescription className="space-y-4">
+          <DialogDescription>
             Set up and manage your trusted contact for emergency vault access.
-            <div className="mt-4 p-4 rounded-lg border bg-muted/50 space-y-3">
-              <h4 className="font-medium">Important Information</h4>
-              <ul className="list-disc list-inside space-y-2 text-sm text-muted-foreground">
-                <li>Your trusted contact must have a registered VaultBox account</li>
-                <li>They will be notified when you add them as a trusted contact</li>
-                <li>They can request emergency access if you become inactive</li>
-                <li>Access is granted automatically after the specified inactivity period</li>
-                <li>You will be notified of any access requests</li>
-                <li>You can revoke access at any time</li>
-              </ul>
-            </div>
           </DialogDescription>
+          <div className="mt-4 p-4 rounded-lg border bg-muted/50 space-y-3">
+            <h4 className="font-medium">Important Information</h4>
+            <ul className="list-disc list-inside space-y-2 text-sm text-muted-foreground">
+              <li>Your trusted contact must have a registered VaultBox account</li>
+              <li>They will be notified when you add them as a trusted contact</li>
+              <li>They can request emergency access if you become inactive</li>
+              <li>Access is granted automatically after the specified inactivity period</li>
+              <li>You will be notified of any access requests</li>
+              <li>You can revoke access at any time</li>
+            </ul>
+          </div>
         </DialogHeader>
 
         <TrustedContactCard />

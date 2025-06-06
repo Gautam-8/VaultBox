@@ -229,24 +229,21 @@ export function EntryDetailsDialog({ entry, open, onOpenChange }: EntryDetailsDi
 
   const { mutate: deleteEntry } = useMutation({
     mutationFn: async () => {
-      setDeleteStep('deleting');
-      
       // Perform the deletion
       const result = await vaultService.deleteEntry(entry!.id);
 
       // Add artificial delay to show the deleting state
-      await new Promise(resolve => setTimeout(resolve, 1500));
+      await new Promise(resolve => setTimeout(resolve, 1000));
 
-      // Set success state
-      setDeleteStep('done');
-
-      // Add delay to show success state
-      await new Promise(resolve => setTimeout(resolve, 1500));
-
-      // Return the result
       return result;
     },
-    onSuccess: () => {
+    onSuccess: async () => {
+      // Set success state
+      setDeleteStep('done');
+      
+      // Add delay to show success state
+      await new Promise(resolve => setTimeout(resolve, 1000));
+
       // Update UI and close modals
       queryClient.invalidateQueries({ queryKey: ["vault-entries"] });
       setShowDeleteAlert(false);
@@ -256,11 +253,14 @@ export function EntryDetailsDialog({ entry, open, onOpenChange }: EntryDetailsDi
     },
     onError: (error: any) => {
       setDeleteStep('idle');
+      setShowDeleteAlert(false);
       toast.error(error.response?.data?.message || "Failed to delete entry");
     }
   });
 
-  const handleDelete = () => {
+  const handleDelete = async (e: React.MouseEvent) => {
+    e.preventDefault(); // Prevent the dialog from closing
+    setDeleteStep('deleting');
     deleteEntry();
   };
 
@@ -801,7 +801,14 @@ export function EntryDetailsDialog({ entry, open, onOpenChange }: EntryDetailsDi
                   className="bg-destructive hover:bg-destructive/90"
                   disabled={deleteStep === 'deleting'}
                 >
-                  Delete
+                  {deleteStep === 'deleting' ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Deleting...
+                    </>
+                  ) : (
+                    'Delete'
+                  )}
                 </AlertDialogAction>
               </AlertDialogFooter>
             </>

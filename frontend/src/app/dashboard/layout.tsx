@@ -5,6 +5,8 @@ import { useRouter } from "next/navigation";
 import { LogOut, Key, Shield } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
 import { Button } from "@/components/ui/button";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { notificationService } from "@/services/notification";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -15,6 +17,8 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { NotificationDropdown } from "@/components/notifications/notification-dropdown";
 import { TrustedContactDialog } from "@/components/trusted-contact/trusted-contact-dialog";
+import { useEmergencyAccess } from "@/hooks/use-emergency-access";
+import { cn } from "@/lib/utils";
 
 function getUserDisplayName(email: string): string {
   // Get name part before @ symbol and capitalize each word
@@ -32,7 +36,23 @@ export default function DashboardLayout({
 }) {
   const router = useRouter();
   const { user, signOut } = useAuth();
+  const { hasUnreadAccessGranted, hasUnreadTrustedContactAdded, hasUnreadNotifications } = useEmergencyAccess();
   const userDisplayName = user?.email ? getUserDisplayName(user.email) : '';
+  const queryClient = useQueryClient();
+
+  const { mutate: markAllAsRead } = useMutation({
+    mutationFn: () => notificationService.markAllAsRead(),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["notifications"] });
+    },
+  });
+
+  const handleEmergencyAccessClick = () => {
+    if (hasUnreadNotifications) {
+      markAllAsRead();
+    }
+    router.push("/emergency-access");
+  };
 
   const handleSignOut = async () => {
     await signOut();
@@ -56,11 +76,33 @@ export default function DashboardLayout({
 
             <Button
               variant="ghost"
-              className="gap-2 text-muted-foreground hover:text-foreground"
-              onClick={() => router.push("/emergency-access")}
+              className={cn(
+                "gap-2 text-muted-foreground hover:text-foreground relative",
+                hasUnreadNotifications && [
+                  "text-primary hover:text-primary p-[2px] group",
+                  "bg-[linear-gradient(90deg,#f44336,#3b82f6,#f44336)]",
+                  "bg-[length:200%_100%] animate-slide",
+                  "border-none"
+                ]
+              )}
+              onClick={handleEmergencyAccessClick}
             >
-              <Shield className="h-4 w-4" />
-              <span>Emergency Access</span>
+              <div className={cn(
+                "relative flex items-center gap-2 bg-background rounded-md px-3 py-1.5",
+                hasUnreadNotifications && [
+                  "after:absolute after:inset-0 after:rounded-md after:animate-pulse after:bg-primary/10",
+                  "shadow-[0_0_15px_rgba(var(--primary),.3)]"
+                ]
+              )}>
+                <Shield className={cn(
+                  "h-4 w-4",
+                  hasUnreadNotifications && "animate-pulse"
+                )} />
+                <span>Emergency Access</span>
+                {hasUnreadNotifications && (
+                  <span className="absolute -top-1.5 -right-1.5 h-3 w-3 rounded-full bg-primary ring-4 ring-primary/30 animate-pulse" />
+                )}
+              </div>
             </Button>
           </div>
 

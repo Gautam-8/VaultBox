@@ -119,6 +119,39 @@
   body {
     @apply bg-background text-foreground;
   }
+  @keyframes gradient-x {
+    0% {
+      background-position: 0% 50%;
+    }
+    50% {
+      background-position: 100% 50%;
+    }
+    100% {
+      background-position: 0% 50%;
+    }
+  }
+  @keyframes border-gradient {
+    0% {
+      border-image: linear-gradient(to right, rgb(239 68 68), rgb(147 51 234), rgb(59 130 246)) 1;
+    }
+    33% {
+      border-image: linear-gradient(to right, rgb(59 130 246), rgb(239 68 68), rgb(147 51 234)) 1;
+    }
+    66% {
+      border-image: linear-gradient(to right, rgb(147 51 234), rgb(59 130 246), rgb(239 68 68)) 1;
+    }
+    100% {
+      border-image: linear-gradient(to right, rgb(239 68 68), rgb(147 51 234), rgb(59 130 246)) 1;
+    }
+  }
+  @keyframes slide {
+    from {
+      background-position: 0% center;
+    }
+    to {
+      background-position: -200% center;
+    }
+  }
 }
 
 @layer utilities {
@@ -127,6 +160,19 @@
   }
   .animation-delay-4000 {
     animation-delay: 4s;
+  }
+  .animate-gradient-x {
+    animation: gradient-x 3s linear infinite;
+    background-size: 200% 100%;
+  }
+  .animate-border-gradient {
+    animation: border-gradient 3s linear infinite;
+  }
+  .border-gradient-to-r {
+    border-image: linear-gradient(to right, rgb(239 68 68), rgb(147 51 234), rgb(59 130 246)) 1;
+  }
+  .animate-slide {
+    animation: slide 3s linear infinite;
   }
 }
 
