@@ -334,10 +334,10 @@ export function NewEntryDialog() {
                       "This entry will be accessible only to you. You can read and update the content"
                     )}
                     {field.value === VaultEntryVisibility.SHARED && (
-                      "This entry can be viewed and updated by you, and viewed by your trusted contacts."
+                      "This entry can be viewed and updated by you, and viewed by your trusted contact."
                     )}
                     {field.value === VaultEntryVisibility.UNLOCK_AFTER && (
-                      "This entry will be viewable and updatable after unlock period, and viewable by your trusted contacts after the unlock period."
+                      "This entry will be viewable and updatable for you, and viewable by your trusted contact after the unlock period."
                     )}
                   </p>
                   <FormMessage />

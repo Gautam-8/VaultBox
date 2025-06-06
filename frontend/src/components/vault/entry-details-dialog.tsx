@@ -147,7 +147,6 @@ export function EntryDetailsDialog({ entry, open, onOpenChange }: EntryDetailsDi
   const [showDeleteAlert, setShowDeleteAlert] = React.useState(false);
   const [activeTab, setActiveTab] = React.useState<"view" | "edit">("view");
   const [isContentMasked, setIsContentMasked] = React.useState(true);
-  const [showHistory, setShowHistory] = React.useState(false);
   const [isUpdating, setIsUpdating] = React.useState(false);
   const [updateStep, setUpdateStep] = React.useState<'encrypting' | 'saving' | 'done' | null>(null);
   const [deleteStep, setDeleteStep] = React.useState<DeleteStep>('idle');
@@ -357,26 +356,16 @@ export function EntryDetailsDialog({ entry, open, onOpenChange }: EntryDetailsDi
                       </Badge>
                     )}
                   </DialogTitle>
-                  <div className="flex items-center gap-2">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="h-8 w-8 p-0"
-                      onClick={() => setShowHistory(!showHistory)}
-                    >
-                      <History className="h-4 w-4" />
-                    </Button>
-                    <Button
-                      variant="destructive"
-                      size="sm"
-                      className="h-8"
-                      onClick={() => setShowDeleteAlert(true)}
-                    >
-                      <Trash className="h-4 w-4 mr-2" />
-                      Delete
-                    </Button>
-                  </div>
+                  <Button
+                    variant="destructive"
+                    size="sm"
+                    className="h-8 px-3 mr-8"
+                    onClick={() => setShowDeleteAlert(true)}
+                  >
+                    <Trash className="h-4 w-4" />
+                  </Button>
                 </div>
+                
                 <div className="flex items-center gap-2 mt-2">
                   <Badge 
                     variant="secondary"
@@ -617,10 +606,10 @@ export function EntryDetailsDialog({ entry, open, onOpenChange }: EntryDetailsDi
                                 "This entry will be accessible only to you. You can read and update the content"
                               )}
                               {field.value === VaultEntryVisibility.SHARED && (
-                                "This entry can be viewed and updated by you, and viewed by your trusted contacts."
+                                "This entry can be viewed and updated by you, and viewed by your trusted contact."
                               )}
                               {field.value === VaultEntryVisibility.UNLOCK_AFTER && (
-                                "This entry will be viewable and updatable after unlock period, and viewable by your trusted contacts after the unlock period."
+                                "This entry will be viewable and updatable for you, and viewable by your trusted contact after the unlock period."
                               )}
                             </p>
                             <FormMessage />
