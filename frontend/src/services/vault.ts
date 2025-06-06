@@ -24,9 +24,11 @@ export interface VaultEntry {
   category: VaultEntryCategory;
   contentType: ContentType;
   encryptedContent: string;
-  fileName?: string;
-  fileSize?: number;
-  mimeType?: string;
+  file?: {
+    name: string;
+    size: number;
+    mimeType: string;
+  };
   autoDeleteDate?: Date;
   visibility: VaultEntryVisibility;
   createdAt: Date;

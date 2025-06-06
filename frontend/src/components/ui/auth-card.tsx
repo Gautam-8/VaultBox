@@ -16,16 +16,16 @@ export function AuthCard({ children, title, subtitle }: AuthCardProps) {
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.5 }}
-      className="w-full max-w-md mx-auto"
+      className="w-full"
     >
-      <Card className="border-none shadow-lg bg-card/30 backdrop-blur-xl">
+      <Card className="border-white/10 shadow-2xl bg-black/40 backdrop-blur-xl">
         <CardHeader className="space-y-3 text-center pb-8">
-          <div className="w-12 h-12 mx-auto bg-primary/10 rounded-xl flex items-center justify-center">
-            <LockKeyhole className="w-6 h-6 text-primary" />
+          <div className="w-12 h-12 mx-auto bg-white/10 rounded-xl flex items-center justify-center">
+            <LockKeyhole className="w-6 h-6 text-white" />
           </div>
           <div className="space-y-1">
-            <h2 className="text-2xl font-bold tracking-tight">{title}</h2>
-            <p className="text-sm text-muted-foreground">{subtitle}</p>
+            <h2 className="text-2xl font-bold tracking-tight text-white">{title}</h2>
+            <p className="text-sm text-white/60">{subtitle}</p>
           </div>
         </CardHeader>
         <CardContent>{children}</CardContent>

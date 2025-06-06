@@ -1,4 +1,5 @@
 import api from "@/lib/api";
+import { useAuth } from "@/hooks/use-auth";
 
 export interface User {
   id: string;
@@ -16,27 +17,45 @@ export interface RegisterCredentials extends LoginCredentials {
 }
 
 export interface AuthResponse {
+  access_token: string;
   user: User;
-  token: string;
 }
 
-const TOKEN_KEY = "auth_token";
+const TOKEN_KEY = "token";
 
 export const authService = {
   async login(credentials: LoginCredentials): Promise<AuthResponse> {
     const { data } = await api.post<AuthResponse>("/auth/login", credentials);
-    localStorage.setItem(TOKEN_KEY, data.token);
+    localStorage.setItem(TOKEN_KEY, data.access_token);
+    
+    // Update Zustand store
+    const auth = useAuth.getState();
+    auth.setUser(data.user);
+    auth.setToken(data.access_token);
+    
     return data;
   },
 
   async register(credentials: LoginCredentials): Promise<AuthResponse> {
     const { data } = await api.post<AuthResponse>("/auth/register", credentials);
-    localStorage.setItem(TOKEN_KEY, data.token);
+    localStorage.setItem(TOKEN_KEY, data.access_token);
+    
+    // Update Zustand store
+    const auth = useAuth.getState();
+    auth.setUser(data.user);
+    auth.setToken(data.access_token);
+    
     return data;
   },
 
   async signOut(): Promise<void> {
     localStorage.removeItem(TOKEN_KEY);
+    
+    // Clear Zustand store
+    const auth = useAuth.getState();
+    auth.setUser(null);
+    auth.setToken(null);
+    
     await api.post("/auth/logout");
   },
 

@@ -3,32 +3,40 @@
 import * as React from "react";
 import { motion } from "framer-motion";
 import { VaultEntryGrid } from "@/components/vault/vault-entry-grid";
-import { CategoryFilter } from "@/components/vault/category-filter";
 import { NewEntryDialog } from "@/components/vault/new-entry-dialog";
-import { TrustedContactDialog } from "@/components/trusted-contact/trusted-contact-dialog";
 
 export default function DashboardPage() {
   return (
-    <div className="container py-6 space-y-8">
-      <div className="flex items-center justify-between">
-        <div className="space-y-1">
-          <h2 className="text-2xl font-semibold tracking-tight">Your Vault</h2>
-          <p className="text-sm text-muted-foreground">
-            Securely store and manage your sensitive information
+    <div className="container mx-auto px-4 py-6 space-y-6 max-w-7xl">
+      {/* Header Section */}
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 pb-2 border-b">
+        <motion.div 
+          initial={{ opacity: 0, x: -20 }}
+          animate={{ opacity: 1, x: 0 }}
+          transition={{ duration: 0.5 }}
+          className="flex-1 min-w-0"
+        >
+          <h2 className="text-3xl font-bold tracking-tight">Your Vault</h2>
+          <p className="text-sm text-muted-foreground mt-1">
+            Securely store and manage your sensitive information. All data is encrypted end-to-end.
           </p>
-        </div>
-        <div className="flex items-center gap-4">
-          <TrustedContactDialog />
+        </motion.div>
+        <motion.div 
+          initial={{ opacity: 0, x: 20 }}
+          animate={{ opacity: 1, x: 0 }}
+          transition={{ duration: 0.5 }}
+          className="shrink-0"
+        >
           <NewEntryDialog />
-        </div>
+        </motion.div>
       </div>
-      
-      <CategoryFilter />
-      
+
+      {/* Vault Grid */}
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.5 }}
+        transition={{ duration: 0.5, delay: 0.4 }}
+        className="min-h-[calc(100vh-200px)]"
       >
         <VaultEntryGrid />
       </motion.div>

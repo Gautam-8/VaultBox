@@ -19,42 +19,33 @@ export function TrustedContactDialog() {
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button variant="outline" className="w-full justify-start">
+        <Button variant="ghost" className="w-full justify-start h-8">
           <Shield className="mr-2 h-4 w-4" />
-          Trusted Contact
+          <span>Trusted Contact</span>
         </Button>
       </DialogTrigger>
       <DialogContent className="sm:max-w-[600px]">
         <DialogHeader>
           <DialogTitle>Trusted Contact Management</DialogTitle>
-          <DialogDescription>
-            Set up and manage your trusted contact for emergency vault access.
+          <DialogDescription className="space-y-4">
+            <p>
+              Set up and manage your trusted contact for emergency vault access.
+            </p>
+            <div className="mt-4 p-4 rounded-lg border bg-muted/50 space-y-3">
+              <h4 className="font-medium">Important Information</h4>
+              <ul className="list-disc list-inside space-y-2 text-sm text-muted-foreground">
+                <li>Your trusted contact must have a registered VaultBox account</li>
+                <li>They will be notified when you add them as a trusted contact</li>
+                <li>They can request emergency access if you become inactive</li>
+                <li>Access is granted automatically after the specified inactivity period</li>
+                <li>You will be notified of any access requests</li>
+                <li>You can revoke access at any time</li>
+              </ul>
+            </div>
           </DialogDescription>
         </DialogHeader>
 
-        <div className="space-y-6">
-          <TrustedContactCard />
-          
-          <div className="prose dark:prose-invert max-w-none text-sm">
-            <h4 className="text-base font-medium">How it works</h4>
-            <p>
-              A trusted contact is someone you trust to access your vault in case of emergency.
-              They can request access to your vault, but they won't be able to see anything until:
-            </p>
-            <ul>
-              <li>You've been inactive for a specified period (e.g., 30 days)</li>
-              <li>OR you explicitly share specific entries with them</li>
-            </ul>
-
-            <h4 className="text-base font-medium">Security considerations</h4>
-            <ul>
-              <li>Choose someone you trust completely</li>
-              <li>They will need to verify their email address</li>
-              <li>You can remove their access at any time</li>
-              <li>You'll be notified of all access attempts</li>
-            </ul>
-          </div>
-        </div>
+        <TrustedContactCard />
       </DialogContent>
     </Dialog>
   );

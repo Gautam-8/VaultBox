@@ -9,24 +9,28 @@ import {
   FileText, 
   Grid2x2 
 } from "lucide-react";
+import { VaultEntryCategory } from "@/services/vault";
 
-export type VaultCategory = "all" | "finance" | "health" | "personal" | "notes";
+export type VaultCategory = "all" | VaultEntryCategory;
 
 const categories = [
   { id: "all", label: "All", icon: Grid2x2 },
-  { id: "finance", label: "Finance", icon: Wallet },
-  { id: "health", label: "Health", icon: Heart },
-  { id: "personal", label: "Personal", icon: User },
-  { id: "notes", label: "Notes", icon: FileText },
+  { id: VaultEntryCategory.FINANCE, label: "Finance", icon: Wallet },
+  { id: VaultEntryCategory.HEALTH, label: "Health", icon: Heart },
+  { id: VaultEntryCategory.PERSONAL, label: "Personal", icon: User },
+  { id: VaultEntryCategory.NOTES, label: "Notes", icon: FileText },
 ] as const;
 
-export function CategoryFilter() {
-  const [category, setCategory] = React.useState<VaultCategory>("all");
+interface CategoryFilterProps {
+  selectedCategory: VaultCategory;
+  onCategoryChange: (category: VaultCategory) => void;
+}
 
+export function CategoryFilter({ selectedCategory, onCategoryChange }: CategoryFilterProps) {
   return (
     <Tabs
-      value={category}
-      onValueChange={(value) => setCategory(value as VaultCategory)}
+      value={selectedCategory}
+      onValueChange={(value) => onCategoryChange(value as VaultCategory)}
       className="w-full"
     >
       <TabsList className="grid w-full grid-cols-5 lg:w-auto">

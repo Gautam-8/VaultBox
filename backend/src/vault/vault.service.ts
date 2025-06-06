@@ -16,8 +16,8 @@ export class VaultService {
       userId,
       title: dto.title,
       category: dto.category,
-      encryptedContent: dto.content,
-      contentType: dto.contentType || ContentType.TEXT,
+      encryptedContent: dto.content, // This will be base64 for files
+      contentType: dto.contentType,
       visibility: dto.visibility,
       autoDeleteDate: dto.autoDeleteDate,
       ...(dto.file && {

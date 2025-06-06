@@ -1,4 +1,5 @@
 import axios from "axios";
+import { useAuth } from "@/hooks/use-auth";
 
 const api = axios.create({
   baseURL: process.env.NEXT_PUBLIC_API_URL,
@@ -29,9 +30,16 @@ api.interceptors.response.use(
   (response) => response,
   async (error) => {
     if (error.response?.status === 401) {
-      // Clear token and redirect to login
+      // Clear token and user data
       localStorage.removeItem("token");
-      window.location.href = "/auth/login";
+      const auth = useAuth.getState();
+      auth.setUser(null);
+      auth.setToken(null);
+      
+      // Only redirect if we're not already on the login page
+      if (!window.location.pathname.includes('/auth/login')) {
+        window.location.href = "/auth/login";
+      }
     }
     return Promise.reject(error);
   }

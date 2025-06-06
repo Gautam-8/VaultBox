@@ -18,6 +18,7 @@ import { authService } from "@/services/auth";
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+import { useAuth } from "@/hooks/use-auth";
 
 const registerSchema = z
   .object({
@@ -34,6 +35,8 @@ type RegisterFormValues = z.infer<typeof registerSchema>;
 
 export function RegisterForm() {
   const router = useRouter();
+  const { setUser, setToken } = useAuth();
+  
   const form = useForm<RegisterFormValues>({
     resolver: zodResolver(registerSchema),
     defaultValues: {
@@ -46,7 +49,11 @@ export function RegisterForm() {
   const { mutate: register, isPending } = useMutation({
     mutationFn: (values: Omit<RegisterFormValues, "confirmPassword">) =>
       authService.register(values),
-    onSuccess: () => {
+    onSuccess: (data) => {
+      // Update auth state
+      setUser(data.user);
+      setToken(data.access_token);
+      
       toast.success("Account created successfully!");
       router.push("/dashboard");
     },
@@ -68,16 +75,16 @@ export function RegisterForm() {
           name="email"
           render={({ field }) => (
             <FormItem>
-              <FormLabel>Email</FormLabel>
+              <FormLabel className="text-white/70">Email</FormLabel>
               <FormControl>
                 <Input
                   placeholder="Enter your email"
                   type="email"
+                  className="bg-white/5 border-white/10 text-white placeholder:text-white/30"
                   {...field}
-                  className="bg-background/50"
                 />
               </FormControl>
-              <FormMessage />
+              <FormMessage className="text-red-400" />
             </FormItem>
           )}
         />
@@ -86,16 +93,16 @@ export function RegisterForm() {
           name="password"
           render={({ field }) => (
             <FormItem>
-              <FormLabel>Password</FormLabel>
+              <FormLabel className="text-white/70">Password</FormLabel>
               <FormControl>
                 <Input
                   placeholder="Create a password"
                   type="password"
+                  className="bg-white/5 border-white/10 text-white placeholder:text-white/30"
                   {...field}
-                  className="bg-background/50"
                 />
               </FormControl>
-              <FormMessage />
+              <FormMessage className="text-red-400" />
             </FormItem>
           )}
         />
@@ -104,16 +111,16 @@ export function RegisterForm() {
           name="confirmPassword"
           render={({ field }) => (
             <FormItem>
-              <FormLabel>Confirm Password</FormLabel>
+              <FormLabel className="text-white/70">Confirm Password</FormLabel>
               <FormControl>
                 <Input
                   placeholder="Confirm your password"
                   type="password"
+                  className="bg-white/5 border-white/10 text-white placeholder:text-white/30"
                   {...field}
-                  className="bg-background/50"
                 />
               </FormControl>
-              <FormMessage />
+              <FormMessage className="text-red-400" />
             </FormItem>
           )}
         />
@@ -121,15 +128,12 @@ export function RegisterForm() {
           <Button type="submit" className="w-full" disabled={isPending}>
             {isPending ? "Creating account..." : "Create Account"}
           </Button>
-          <p className="text-sm text-center text-muted-foreground">
-            Already have an account?{" "}
-            <Link
-              href="/auth/login"
-              className="text-primary hover:underline font-medium"
-            >
-              Login
+          <div className="text-center text-sm">
+            <span className="text-white/50">Already have an account? </span>
+            <Link href="/auth/login" className="text-white hover:underline">
+              Sign in
             </Link>
-          </p>
+          </div>
         </div>
       </form>
     </Form>

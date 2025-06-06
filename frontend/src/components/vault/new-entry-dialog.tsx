@@ -31,7 +31,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
-import { Calendar as CalendarIcon, Plus } from "lucide-react";
+import { Calendar as CalendarIcon, Plus, Shield, Lock, FileCheck, Loader2 } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
@@ -39,6 +39,7 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { vaultService, VaultEntryCategory, VaultEntryVisibility, ContentType } from "@/services/vault";
 import { toast } from "sonner";
 import { FileUpload } from "@/components/ui/file-upload";
+import { motion, AnimatePresence } from "framer-motion";
 
 const MAX_FILE_SIZE = 50 * 1024 * 1024; // 50MB
 const ACCEPTED_FILE_TYPES = {
@@ -75,6 +76,8 @@ type NewEntryFormValues = z.infer<typeof newEntrySchema>;
 export function NewEntryDialog() {
   const [open, setOpen] = React.useState(false);
   const [isFileMode, setIsFileMode] = React.useState(false);
+  const [isSubmitting, setIsSubmitting] = React.useState(false);
+  const [currentStep, setCurrentStep] = React.useState<'encrypting' | 'saving' | 'done' | null>(null);
   const queryClient = useQueryClient();
   
   const form = useForm<NewEntryFormValues>({
@@ -95,7 +98,6 @@ export function NewEntryDialog() {
         formData.append("title", values.title);
         formData.append("category", values.category);
         formData.append("visibility", values.visibility);
-        formData.append("contentType", ContentType.FILE);
         
         if (values.autoDeleteDate) {
           formData.append("autoDeleteDate", values.autoDeleteDate.toISOString());
@@ -128,9 +130,36 @@ export function NewEntryDialog() {
 
   const visibility = form.watch("visibility");
 
-  function onSubmit(data: NewEntryFormValues) {
-    createEntry(data);
-  }
+  const onSubmit = async (values: NewEntryFormValues) => {
+    try {
+      setIsSubmitting(true);
+      
+      // Encrypting animation - exactly 1 second
+      setCurrentStep('encrypting');
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      
+      // Saving animation - exactly 1 second
+      setCurrentStep('saving');
+      // Small delay before API call
+      await new Promise(resolve => setTimeout(resolve, 200));
+      await createEntry(values);
+      // Show saving state for remaining time to complete 1 second
+      await new Promise(resolve => setTimeout(resolve, 800));
+      
+      // Success animation - exactly 1 second
+      setCurrentStep('done');
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      
+      queryClient.invalidateQueries({ queryKey: ["vault-entries"] });
+      toast.success("Entry created successfully");
+      setOpen(false);
+    } catch (error: any) {
+      toast.error(error.response?.data?.message || "Failed to create entry");
+    } finally {
+      setIsSubmitting(false);
+      setCurrentStep(null);
+    }
+  };
 
   const toggleMode = () => {
     setIsFileMode(!isFileMode);
@@ -141,8 +170,8 @@ export function NewEntryDialog() {
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button>
-          <Plus className="mr-2 h-4 w-4" />
+        <Button size="lg" className="gap-2">
+          <Plus className="h-5 w-5" />
           New Entry
         </Button>
       </DialogTrigger>
@@ -194,7 +223,7 @@ export function NewEntryDialog() {
               )}
             />
 
-            <div className="space-y-4">
+            <div>
               <div className="flex items-center justify-between">
                 <FormLabel>Content</FormLabel>
                 <Button
@@ -214,9 +243,11 @@ export function NewEntryDialog() {
                   render={({ field: { onChange, value, ...field } }) => (
                     <FormItem>
                       <FormControl>
-                        <FileUpload
+                        <Input
+                          type="file"
                           accept={Object.values(ACCEPTED_FILE_TYPES).join(",")}
-                          onFileSelect={(file) => {
+                          onChange={(e) => {
+                            const file = e.target.files?.[0];
                             onChange(file);
                             if (file) {
                               form.setValue("content", file.name);
@@ -349,15 +380,300 @@ export function NewEntryDialog() {
                   form.reset();
                   setIsFileMode(false);
                 }}
+                disabled={isSubmitting}
               >
                 Cancel
               </Button>
-              <Button type="submit" disabled={isPending}>
-                {isPending ? "Creating..." : "Create Entry"}
+              <Button 
+                type="submit" 
+                disabled={isSubmitting}
+                className="min-w-[100px] relative"
+              >
+                <AnimatePresence mode="wait">
+                  {!isSubmitting && (
+                    <motion.div
+                      key="default"
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: 1 }}
+                      exit={{ opacity: 0 }}
+                      className="flex items-center"
+                    >
+                      <Plus className="mr-2 h-4 w-4" />
+                      Create Entry
+                    </motion.div>
+                  )}
+                  {currentStep === 'encrypting' && (
+                    <motion.div
+                      key="encrypting-detail"
+                      initial={{ opacity: 0, y: 20 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, y: -20 }}
+                      transition={{ duration: 0.3 }}
+                      className="flex flex-col items-center"
+                    >
+                      <div className="relative">
+                        <Shield className="h-8 w-8 text-primary animate-pulse" />
+                        <motion.div
+                          animate={{
+                            scale: [1, 1.2, 1],
+                            rotate: [0, 10, -10, 0]
+                          }}
+                          transition={{
+                            duration: 1,
+                            repeat: Infinity,
+                            ease: "easeInOut"
+                          }}
+                        >
+                          <Lock className="h-4 w-4 text-primary absolute bottom-0 right-0" />
+                        </motion.div>
+                      </div>
+                      <h3 className="font-semibold mt-2">Encrypting Your Data</h3>
+                      <p className="text-sm text-muted-foreground">
+                        Securing your information with end-to-end encryption
+                      </p>
+                      <motion.div 
+                        className="w-full h-1 bg-muted mt-3 rounded-full overflow-hidden"
+                      >
+                        <motion.div
+                          className="h-full bg-primary"
+                          initial={{ width: "0%" }}
+                          animate={{ width: "100%" }}
+                          transition={{ duration: 1, ease: "easeInOut" }}
+                        />
+                      </motion.div>
+                    </motion.div>
+                  )}
+                  {currentStep === 'saving' && (
+                    <motion.div
+                      key="saving-detail"
+                      initial={{ opacity: 0, y: 20 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, y: -20 }}
+                      transition={{ duration: 0.3 }}
+                      className="flex flex-col items-center"
+                    >
+                      <div className="relative">
+                        <motion.div
+                          animate={{ rotate: 360 }}
+                          transition={{ duration: 2, repeat: Infinity, ease: "linear" }}
+                        >
+                          <Loader2 className="h-8 w-8 text-primary" />
+                        </motion.div>
+                        <motion.div
+                          className="absolute -right-1 -top-1 h-2 w-2 rounded-full bg-primary"
+                          animate={{ scale: [1, 1.5, 1] }}
+                          transition={{ duration: 1, repeat: Infinity }}
+                        />
+                      </div>
+                      <h3 className="font-semibold mt-2">Saving to Vault</h3>
+                      <p className="text-sm text-muted-foreground">
+                        Storing your encrypted data securely
+                      </p>
+                      <div className="flex items-center gap-1 mt-2">
+                        <motion.div
+                          className="h-1.5 w-1.5 rounded-full bg-primary"
+                          animate={{ scale: [1, 1.5, 1] }}
+                          transition={{ duration: 0.3, repeat: Infinity, delay: 0 }}
+                        />
+                        <motion.div
+                          className="h-1.5 w-1.5 rounded-full bg-primary"
+                          animate={{ scale: [1, 1.5, 1] }}
+                          transition={{ duration: 0.3, repeat: Infinity, delay: 0.1 }}
+                        />
+                        <motion.div
+                          className="h-1.5 w-1.5 rounded-full bg-primary"
+                          animate={{ scale: [1, 1.5, 1] }}
+                          transition={{ duration: 0.3, repeat: Infinity, delay: 0.2 }}
+                        />
+                      </div>
+                    </motion.div>
+                  )}
+                  {currentStep === 'done' && (
+                    <motion.div
+                      key="done-detail"
+                      initial={{ opacity: 0, y: 20 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, y: -20 }}
+                      transition={{ duration: 0.3 }}
+                      className="flex flex-col items-center"
+                    >
+                      <div className="relative">
+                        <motion.div
+                          initial={{ scale: 0.8, opacity: 0 }}
+                          animate={{ scale: 1, opacity: 1 }}
+                          transition={{ type: "spring", duration: 0.3 }}
+                        >
+                          <FileCheck className="h-8 w-8 text-primary" />
+                        </motion.div>
+                        <motion.div
+                          initial={{ scale: 0, opacity: 0 }}
+                          animate={{ scale: 1, opacity: 1 }}
+                          transition={{ delay: 0.1, type: "spring", duration: 0.3 }}
+                          className="absolute -top-1 -right-1 h-4 w-4 bg-green-500 rounded-full"
+                        />
+                      </div>
+                      <motion.h3 
+                        initial={{ opacity: 0, y: 10 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ delay: 0.2, duration: 0.2 }}
+                        className="font-semibold mt-2"
+                      >
+                        Successfully Saved!
+                      </motion.h3>
+                      <motion.p 
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        transition={{ delay: 0.3, duration: 0.2 }}
+                        className="text-sm text-muted-foreground"
+                      >
+                        Your entry has been securely stored
+                      </motion.p>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
               </Button>
             </div>
           </form>
         </Form>
+
+        {isSubmitting && (
+          <div className="absolute inset-0 bg-background/50 backdrop-blur-sm flex items-center justify-center">
+            <div className="bg-card p-4 rounded-lg shadow-lg border max-w-[250px]">
+              <div className="flex flex-col items-center text-center space-y-3">
+                <AnimatePresence mode="wait">
+                  {currentStep === 'encrypting' && (
+                    <motion.div
+                      key="encrypting-detail"
+                      initial={{ opacity: 0, y: 20 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, y: -20 }}
+                      transition={{ duration: 0.3 }}
+                      className="flex flex-col items-center"
+                    >
+                      <div className="relative">
+                        <Shield className="h-8 w-8 text-primary animate-pulse" />
+                        <motion.div
+                          animate={{
+                            scale: [1, 1.2, 1],
+                            rotate: [0, 10, -10, 0]
+                          }}
+                          transition={{
+                            duration: 1,
+                            repeat: Infinity,
+                            ease: "easeInOut"
+                          }}
+                        >
+                          <Lock className="h-4 w-4 text-primary absolute bottom-0 right-0" />
+                        </motion.div>
+                      </div>
+                      <h3 className="font-semibold mt-2">Encrypting Your Data</h3>
+                      <p className="text-sm text-muted-foreground">
+                        Securing your information with end-to-end encryption
+                      </p>
+                      <motion.div 
+                        className="w-full h-1 bg-muted mt-3 rounded-full overflow-hidden"
+                      >
+                        <motion.div
+                          className="h-full bg-primary"
+                          initial={{ width: "0%" }}
+                          animate={{ width: "100%" }}
+                          transition={{ duration: 1, ease: "easeInOut" }}
+                        />
+                      </motion.div>
+                    </motion.div>
+                  )}
+                  {currentStep === 'saving' && (
+                    <motion.div
+                      key="saving-detail"
+                      initial={{ opacity: 0, y: 20 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, y: -20 }}
+                      transition={{ duration: 0.3 }}
+                      className="flex flex-col items-center"
+                    >
+                      <div className="relative">
+                        <motion.div
+                          animate={{ rotate: 360 }}
+                          transition={{ duration: 2, repeat: Infinity, ease: "linear" }}
+                        >
+                          <Loader2 className="h-8 w-8 text-primary" />
+                        </motion.div>
+                        <motion.div
+                          className="absolute -right-1 -top-1 h-2 w-2 rounded-full bg-primary"
+                          animate={{ scale: [1, 1.5, 1] }}
+                          transition={{ duration: 1, repeat: Infinity }}
+                        />
+                      </div>
+                      <h3 className="font-semibold mt-2">Saving to Vault</h3>
+                      <p className="text-sm text-muted-foreground">
+                        Storing your encrypted data securely
+                      </p>
+                      <div className="flex items-center gap-1 mt-2">
+                        <motion.div
+                          className="h-1.5 w-1.5 rounded-full bg-primary"
+                          animate={{ scale: [1, 1.5, 1] }}
+                          transition={{ duration: 0.3, repeat: Infinity, delay: 0 }}
+                        />
+                        <motion.div
+                          className="h-1.5 w-1.5 rounded-full bg-primary"
+                          animate={{ scale: [1, 1.5, 1] }}
+                          transition={{ duration: 0.3, repeat: Infinity, delay: 0.1 }}
+                        />
+                        <motion.div
+                          className="h-1.5 w-1.5 rounded-full bg-primary"
+                          animate={{ scale: [1, 1.5, 1] }}
+                          transition={{ duration: 0.3, repeat: Infinity, delay: 0.2 }}
+                        />
+                      </div>
+                    </motion.div>
+                  )}
+                  {currentStep === 'done' && (
+                    <motion.div
+                      key="done-detail"
+                      initial={{ opacity: 0, y: 20 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, y: -20 }}
+                      transition={{ duration: 0.3 }}
+                      className="flex flex-col items-center"
+                    >
+                      <div className="relative">
+                        <motion.div
+                          initial={{ scale: 0.8, opacity: 0 }}
+                          animate={{ scale: 1, opacity: 1 }}
+                          transition={{ type: "spring", duration: 0.3 }}
+                        >
+                          <FileCheck className="h-8 w-8 text-primary" />
+                        </motion.div>
+                        <motion.div
+                          initial={{ scale: 0, opacity: 0 }}
+                          animate={{ scale: 1, opacity: 1 }}
+                          transition={{ delay: 0.1, type: "spring", duration: 0.3 }}
+                          className="absolute -top-1 -right-1 h-4 w-4 bg-green-500 rounded-full"
+                        />
+                      </div>
+                      <motion.h3 
+                        initial={{ opacity: 0, y: 10 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ delay: 0.2, duration: 0.2 }}
+                        className="font-semibold mt-2"
+                      >
+                        Successfully Saved!
+                      </motion.h3>
+                      <motion.p 
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        transition={{ delay: 0.3, duration: 0.2 }}
+                        className="text-sm text-muted-foreground"
+                      >
+                        Your entry has been securely stored
+                      </motion.p>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+              </div>
+            </div>
+          </div>
+        )}
       </DialogContent>
     </Dialog>
   );

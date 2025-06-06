@@ -32,11 +32,10 @@ export class VaultController {
 
   @Post()
   create(@Request() req, @Body() createVaultEntryDto: CreateVaultEntryDto) {
-    const dto: CreateVaultEntryDto = {
+    return this.vaultService.create(req.user.userId, {
       ...createVaultEntryDto,
       contentType: ContentType.TEXT,
-    };
-    return this.vaultService.create(req.user.userId, dto);
+    });
   }
 
   @Post('upload')
@@ -51,19 +50,24 @@ export class VaultController {
       }),
     )
     file: Express.Multer.File,
-    @Body() createVaultEntryDto: CreateVaultEntryDto,
+    @Body() body: any,
   ) {
-    const dto: CreateVaultEntryDto = {
-      ...createVaultEntryDto,
-      content: file.buffer.toString('base64'),
+    // Create DTO with proper types
+    const createVaultEntryDto: CreateVaultEntryDto = {
+      title: body.title,
+      category: body.category,
+      content: file.buffer.toString('base64'), // Store file content as base64
       contentType: ContentType.FILE,
+      visibility: body.visibility,
+      autoDeleteDate: body.autoDeleteDate ? new Date(body.autoDeleteDate) : undefined,
       file: {
         originalname: file.originalname,
         size: file.size,
         mimetype: file.mimetype
       }
     };
-    return this.vaultService.create(req.user.userId, dto);
+
+    return this.vaultService.create(req.user.userId, createVaultEntryDto);
   }
 
   @Get()
@@ -73,7 +77,7 @@ export class VaultController {
 
   @Get(':id')
   findOne(@Request() req, @Param('id') id: string) {
-    return this.vaultService.findOne(id, req.user.userId);
+    return this.vaultService.findOne(req.user.userId, id);
   }
 
   @Put(':id')
@@ -82,7 +86,7 @@ export class VaultController {
     @Param('id') id: string,
     @Body() updateVaultEntryDto: UpdateVaultEntryDto,
   ) {
-    return this.vaultService.update(id, req.user.userId, updateVaultEntryDto);
+    return this.vaultService.update(req.user.userId, id, updateVaultEntryDto);
   }
 
   @Delete(':id')

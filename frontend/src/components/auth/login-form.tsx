@@ -18,6 +18,7 @@ import { authService } from "@/services/auth";
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+import { useAuth } from "@/hooks/use-auth";
 
 const loginSchema = z.object({
   email: z.string().email("Please enter a valid email address"),
@@ -28,6 +29,8 @@ type LoginFormValues = z.infer<typeof loginSchema>;
 
 export function LoginForm() {
   const router = useRouter();
+  const { setUser, setToken } = useAuth();
+  
   const form = useForm<LoginFormValues>({
     resolver: zodResolver(loginSchema),
     defaultValues: {
@@ -38,7 +41,11 @@ export function LoginForm() {
 
   const { mutate: login, isPending } = useMutation({
     mutationFn: (values: LoginFormValues) => authService.login(values),
-    onSuccess: () => {
+    onSuccess: (data) => {
+      // Update auth state
+      setUser(data.user);
+      setToken(data.access_token);
+      
       toast.success("Welcome back!");
       router.push("/dashboard");
     },
@@ -59,16 +66,16 @@ export function LoginForm() {
           name="email"
           render={({ field }) => (
             <FormItem>
-              <FormLabel>Email</FormLabel>
+              <FormLabel className="text-white/70">Email</FormLabel>
               <FormControl>
                 <Input
                   placeholder="Enter your email"
                   type="email"
+                  className="bg-white/5 border-white/10 text-white placeholder:text-white/30"
                   {...field}
-                  className="bg-background/50"
                 />
               </FormControl>
-              <FormMessage />
+              <FormMessage className="text-red-400" />
             </FormItem>
           )}
         />
@@ -77,32 +84,31 @@ export function LoginForm() {
           name="password"
           render={({ field }) => (
             <FormItem>
-              <FormLabel>Password</FormLabel>
+              <FormLabel className="text-white/70">Password</FormLabel>
               <FormControl>
                 <Input
                   placeholder="Enter your password"
                   type="password"
+                  className="bg-white/5 border-white/10 text-white placeholder:text-white/30"
                   {...field}
-                  className="bg-background/50"
                 />
               </FormControl>
-              <FormMessage />
+              <FormMessage className="text-red-400" />
             </FormItem>
           )}
         />
-        <div className="space-y-4">
-          <Button type="submit" className="w-full" disabled={isPending}>
-            {isPending ? "Logging in..." : "Login"}
-          </Button>
-          <p className="text-sm text-center text-muted-foreground">
-            Don't have an account?{" "}
-            <Link
-              href="/auth/register"
-              className="text-primary hover:underline font-medium"
-            >
-              Register
-            </Link>
-          </p>
+        <Button 
+          type="submit" 
+          className="w-full" 
+          disabled={isPending}
+        >
+          {isPending ? "Signing in..." : "Sign in"}
+        </Button>
+        <div className="text-center text-sm">
+          <span className="text-white/50">Don't have an account? </span>
+          <Link href="/auth/register" className="text-white hover:underline">
+            Register
+          </Link>
         </div>
       </form>
     </Form>

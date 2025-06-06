@@ -1,21 +1,33 @@
+"use client";
+
+import { Key } from "lucide-react";
+
 export default function AuthLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
   return (
-    <div className="min-h-screen w-full grid place-items-center p-4 relative bg-background overflow-hidden">
-      {/* Gradient blobs */}
-      <div className="absolute inset-0 w-full h-full overflow-hidden z-0">
-        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[800px] h-[800px] opacity-20">
-          <div className="absolute inset-0 bg-primary rounded-full blur-3xl animate-blob" />
-          <div className="absolute inset-0 bg-secondary rounded-full blur-3xl animate-blob animation-delay-2000" />
-          <div className="absolute inset-0 bg-accent rounded-full blur-3xl animate-blob animation-delay-4000" />
+    <div className="min-h-screen w-full bg-black relative overflow-hidden">
+      {/* Navbar */}
+      <nav className="absolute top-0 w-full z-50">
+        <div className="container flex h-14 items-center">
+          <div className="flex items-center gap-2">
+            <Key className="h-5 w-5 text-white" />
+            <span className="text-lg font-semibold text-white">VaultBox</span>
+          </div>
         </div>
-      </div>
+      </nav>
+
+      {/* Simple gradient background */}
+      <div className="absolute inset-0 bg-gradient-to-br from-black via-blue-950/20 to-black -z-10" />
 
       {/* Content */}
-      <main className="relative z-10 w-full">{children}</main>
+      <main className="flex items-center justify-center min-h-screen w-full px-4">
+        <div className="w-full max-w-md bg-black/50 p-6 rounded-lg backdrop-blur-sm border border-white/5">
+          {children}
+        </div>
+      </main>
     </div>
   );
 } 

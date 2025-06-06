@@ -6,15 +6,13 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuLabel,
-  DropdownMenuSeparator,
   DropdownMenuCheckboxItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { VaultEntryCategory, VaultEntryVisibility } from "@/services/vault";
+import { VaultEntryVisibility } from "@/services/vault";
 
 export interface VaultFilters {
   search: string;
-  categories: VaultEntryCategory[];
   visibility: VaultEntryVisibility[];
 }
 
@@ -26,13 +24,6 @@ interface VaultSearchProps {
 export function VaultSearch({ filters, onFiltersChange }: VaultSearchProps) {
   const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     onFiltersChange({ ...filters, search: e.target.value });
-  };
-
-  const toggleCategory = (category: VaultEntryCategory) => {
-    const categories = filters.categories.includes(category)
-      ? filters.categories.filter((c) => c !== category)
-      : [...filters.categories, category];
-    onFiltersChange({ ...filters, categories });
   };
 
   const toggleVisibility = (visibility: VaultEntryVisibility) => {
@@ -60,17 +51,6 @@ export function VaultSearch({ filters, onFiltersChange }: VaultSearchProps) {
           </Button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end" className="w-56">
-          <DropdownMenuLabel>Categories</DropdownMenuLabel>
-          {Object.values(VaultEntryCategory).map((category) => (
-            <DropdownMenuCheckboxItem
-              key={category}
-              checked={filters.categories.includes(category)}
-              onCheckedChange={() => toggleCategory(category)}
-            >
-              {category}
-            </DropdownMenuCheckboxItem>
-          ))}
-          <DropdownMenuSeparator />
           <DropdownMenuLabel>Visibility</DropdownMenuLabel>
           {Object.values(VaultEntryVisibility).map((visibility) => (
             <DropdownMenuCheckboxItem

@@ -12,14 +12,12 @@ export class CreateVaultEntryDto {
   @IsString()
   content: string;
 
-  @IsOptional()
   @IsEnum(ContentType)
-  contentType?: ContentType;
+  contentType: ContentType = ContentType.TEXT;
 
   @IsOptional()
   file?: {
     originalname: string;
-    path?: string;
     size: number;
     mimetype: string;
   };
@@ -51,9 +49,12 @@ export class UpdateVaultEntryDto {
   content?: string;
 
   @IsOptional()
+  @IsEnum(ContentType)
+  contentType?: ContentType;
+
+  @IsOptional()
   file?: {
     originalname: string;
-    path?: string;
     size: number;
     mimetype: string;
   };
