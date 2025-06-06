@@ -1,4 +1,4 @@
-import api from "@/lib/api";
+import api from '@/lib/api';
 
 export interface TrustedContact {
   id: string;
@@ -10,68 +10,82 @@ export interface TrustedContact {
   updatedAt: Date;
 }
 
-export interface SharedVaultEntry {
-  id: string;
-  title: string;
-  category: string;
-  content: string;
-  file?: {
-    name: string;
-    url: string;
-  };
-  createdAt: string;
-  updatedAt: string;
-}
-
 export interface AddTrustedContactDto {
   contactEmail: string;
   unlockAfterDays: number;
 }
 
-export interface UpdateTrustedContactDto {
-  contactEmail: string;
+export interface AccessStatus {
+  status: 'pending' | 'granted';
   unlockAfterDays: number;
+  inactiveDays: number;
 }
 
-export interface AccessRequestResponse {
-  status: 'granted' | 'pending';
-  message: string;
-  unlockAfterDays?: number;
-  inactiveDays?: number;
+export interface SharedVaultEntry {
+  id: string;
+  title: string;
+  category: string;
+  encryptedContent: string;
+  visibility: string;
+  createdAt: Date;
+  updatedAt: Date;
+  vaultOwner: {
+    email: string;
+  };
+}
+
+export interface TrustedContactAccess {
+  isTrustedContact: boolean;
+  vaultOwners: Array<{
+    email: string;
+    isUnlockActive: boolean;
+    unlockAfterDays: number;
+    lastRequestedAt: Date | null;
+  }>;
 }
 
 export const trustedContactService = {
-  async getTrustedContact(): Promise<TrustedContact | null> {
-    const { data } = await api.get<TrustedContact>("/trusted-contacts");
-    return data;
+  getTrustedContact: async () => {
+    const response = await api.get<TrustedContact>('/trusted-contacts');
+    return response.data;
   },
 
-  async addTrustedContact(dto: AddTrustedContactDto): Promise<TrustedContact> {
-    const { data } = await api.post<TrustedContact>("/trusted-contacts", dto);
-    return data;
+  addTrustedContact: async (dto: AddTrustedContactDto) => {
+    const response = await api.post<TrustedContact>('/trusted-contacts', dto);
+    return response.data;
   },
 
-  async updateTrustedContact(dto: UpdateTrustedContactDto): Promise<TrustedContact> {
-    const { data } = await api.put<TrustedContact>("/trusted-contacts", dto);
-    return data;
+  updateTrustedContact: async (dto: AddTrustedContactDto) => {
+    const response = await api.put<TrustedContact>('/trusted-contacts', dto);
+    return response.data;
   },
 
-  async removeTrustedContact(): Promise<void> {
-    await api.delete("/trusted-contacts");
+  removeTrustedContact: async () => {
+    const response = await api.delete('/trusted-contacts');
+    return response.data;
   },
 
-  async requestAccess(email: string): Promise<AccessRequestResponse> {
-    const { data } = await api.post<AccessRequestResponse>("/trusted-contacts/request-access", { contactEmail: email });
-    return data;
+  requestAccess: async (vaultOwnerEmail: string) => {
+    const response = await api.post<AccessStatus>('/trusted-contacts/request-access', {
+      vaultOwnerEmail,
+    });
+    return response.data;
   },
 
-  async getSharedEntries(): Promise<SharedVaultEntry[]> {
-    const { data } = await api.get<SharedVaultEntry[]>("/trusted-contacts/shared-entries");
-    return data;
+  getSharedEntries: async () => {
+    const response = await api.get<SharedVaultEntry[]>('/trusted-contacts/shared-entries');
+    return response.data;
   },
 
-  async grantAccess(contactEmail: string): Promise<AccessRequestResponse> {
-    const { data } = await api.post<AccessRequestResponse>("/trusted-contacts/grant-access", { contactEmail });
-    return data;
+  grantAccess: async (contactEmail: string) => {
+    const response = await api.post('/trusted-contacts/grant-access', {
+      contactEmail,
+    });
+    return response.data;
+  },
+
+  checkAccess: async () => {
+    const response = await api.get<TrustedContactAccess>('/trusted-contacts/check-access');
+    return response.data;
   },
 }; 

@@ -6,7 +6,9 @@ const Mailjet = require('node-mailjet');
 export class EmailService {
   private mailjet: any;
 
-  constructor(private configService: ConfigService) {
+  constructor(
+    private readonly configService: ConfigService,
+  ) {
     this.mailjet = new Mailjet({
       apiKey: this.configService.get<string>('MAILJET_API_KEY'),
       apiSecret: this.configService.get<string>('MAILJET_API_SECRET'),
@@ -96,6 +98,32 @@ export class EmailService {
             <p>Your emergency access request for ${vaultOwnerEmail}'s vault is still pending.</p>
             <p>Access will be automatically granted in ${daysRemaining} days if no action is taken.</p>
             <p>You can check your request status anytime by visiting the emergency access page.</p>
+          `,
+        },
+      ],
+    });
+  }
+
+  async sendTrustedContactAddedEmail(to: string) {
+    await this.mailjet.post('send', { version: 'v3.1' }).request({
+      Messages: [
+        {
+          From: {
+            Email: this.configService.get<string>('FROM_EMAIL'),
+            Name: this.configService.get<string>('FROM_NAME'),
+          },
+          To: [{ Email: to }],
+          Subject: 'You Have Been Added as a Trusted Contact - VaultBox',
+          HTMLPart: `
+            <h2>Trusted Contact Access</h2>
+            <p>You have been added as a trusted contact in VaultBox.</p>
+            <p>This means:</p>
+            <ul>
+              <li>You can request emergency access to the vault if needed</li>
+              <li>Access will be granted after a specified period of inactivity</li>
+              <li>You will be notified when access is granted</li>
+            </ul>
+            <p>You can manage emergency access anytime by visiting VaultBox.</p>
           `,
         },
       ],

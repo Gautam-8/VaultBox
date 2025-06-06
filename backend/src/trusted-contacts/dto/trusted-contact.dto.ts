@@ -20,5 +20,5 @@ export class UpdateTrustedContactDto {
 
 export class RequestAccessDto {
   @IsEmail()
-  contactEmail: string;
+  vaultOwnerEmail: string;
 } 

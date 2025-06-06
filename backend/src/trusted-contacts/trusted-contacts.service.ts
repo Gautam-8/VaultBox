@@ -6,6 +6,7 @@ import { NotificationsService } from '../notifications/notifications.service';
 import { EmailService } from '../email/email.service';
 import { User } from '../users/entities/user.entity';
 import { VaultEntry, VaultEntryVisibility } from '../vault/entities/vault-entry.entity';
+import { SharedVaultEntry } from './interfaces/shared-vault-entry.interface';
 
 @Injectable()
 export class TrustedContactsService {
@@ -21,13 +22,37 @@ export class TrustedContactsService {
   ) {}
 
   async create(userId: string, contactEmail: string, unlockAfterDays: number) {
+    // Check if target user exists and is registered
+    const targetUser = await this.userRepository.findOne({
+      where: { email: contactEmail },
+    });
+
+    if (!targetUser) {
+      throw new NotFoundException('User must be registered to be a trusted contact');
+    }
+
     // Check if user already has a trusted contact
-    const existingContact = await this.trustedContactRepository.findOne({
+    const existingAsOwner = await this.trustedContactRepository.findOne({
       where: { userId },
     });
 
-    if (existingContact) {
-      throw new ConflictException('User already has a trusted contact');
+    if (existingAsOwner) {
+      throw new ConflictException('You already have a trusted contact');
+    }
+
+    // Check if target user is already someone's trusted contact
+    const existingAsContact = await this.trustedContactRepository.findOne({
+      where: { contactEmail },
+    });
+
+    if (existingAsContact) {
+      throw new ConflictException('This user is already a trusted contact for another vault');
+    }
+
+    // Get current user's email
+    const currentUser = await this.userRepository.findOne({ where: { id: userId } });
+    if (!currentUser) {
+      throw new NotFoundException('Current user not found');
     }
 
     const trustedContact = this.trustedContactRepository.create({
@@ -36,7 +61,59 @@ export class TrustedContactsService {
       unlockAfterDays,
     });
 
-    return this.trustedContactRepository.save(trustedContact);
+    const savedContact = await this.trustedContactRepository.save({
+      ...trustedContact,
+      userId,
+    });
+
+    // Notify the trusted contact
+    await this.emailService.sendTrustedContactAddedEmail(contactEmail);
+    
+    return savedContact;
+  }
+
+  async update(userId: string, contactEmail: string, unlockAfterDays: number) {
+    const currentContact = await this.trustedContactRepository.findOne({
+      where: { userId },
+    });
+
+    if (!currentContact) {
+      throw new NotFoundException('Trusted contact not found');
+    }
+
+    // If email is being changed, perform the same checks as create
+    if (currentContact.contactEmail !== contactEmail) {
+      const targetUser = await this.userRepository.findOne({
+        where: { email: contactEmail },
+      });
+
+      if (!targetUser) {
+        throw new NotFoundException('User must be registered to be a trusted contact');
+      }
+
+      // Check if target user is already someone's trusted contact
+      const existingAsContact = await this.trustedContactRepository.findOne({
+        where: { contactEmail },
+      });
+
+      if (existingAsContact) {
+        throw new ConflictException('This user is already a trusted contact for another vault');
+      }
+
+      // Get current user's email
+      const currentUser = await this.userRepository.findOne({ where: { id: userId } });
+      if (!currentUser) {
+        throw new NotFoundException('Current user not found');
+      }
+
+      // Notify the new trusted contact
+      await this.emailService.sendTrustedContactAddedEmail(contactEmail);
+    }
+
+    currentContact.contactEmail = contactEmail;
+    currentContact.unlockAfterDays = unlockAfterDays;
+
+    return this.trustedContactRepository.save(currentContact);
   }
 
   async findByUser(userId: string) {
@@ -45,19 +122,80 @@ export class TrustedContactsService {
     });
   }
 
-  async update(userId: string, contactEmail: string, unlockAfterDays: number) {
-    const trustedContact = await this.trustedContactRepository.findOne({
-      where: { userId },
+  async checkTrustedContactAccess(userEmail: string) {
+    const trustedContacts = await this.trustedContactRepository.find({
+      where: { contactEmail: userEmail },
+      relations: ['user'],
     });
 
-    if (!trustedContact) {
-      throw new NotFoundException('Trusted contact not found');
+    if (!trustedContacts.length) {
+      return {
+        isTrustedContact: false,
+        vaultOwners: []
+      };
     }
 
-    trustedContact.contactEmail = contactEmail;
-    trustedContact.unlockAfterDays = unlockAfterDays;
+    return {
+      isTrustedContact: true,
+      vaultOwners: trustedContacts.map(contact => ({
+        email: contact.user.email,
+        isUnlockActive: contact.isUnlockActive,
+        unlockAfterDays: contact.unlockAfterDays,
+        lastRequestedAt: contact.lastRequestedAt
+      }))
+    };
+  }
 
-    return this.trustedContactRepository.save(trustedContact);
+  async findVaultsAsContact(userEmail: string) {
+    return this.trustedContactRepository.find({
+      where: { contactEmail: userEmail },
+      relations: ['user'],
+    });
+  }
+
+  async getSharedEntries(userEmail: string): Promise<SharedVaultEntry[]> {
+    // Find all vaults where user is trusted contact
+    const trustedContacts = await this.trustedContactRepository.find({
+      where: { 
+        contactEmail: userEmail,
+        isUnlockActive: true 
+      },
+      relations: ['user'],
+    });
+
+    if (!trustedContacts.length) {
+      return [];
+    }
+
+    // Get entries from all vaults where user is trusted contact
+    const allEntries: SharedVaultEntry[] = [];
+    for (const contact of trustedContacts) {
+      const vaultEntries = await this.vaultEntryRepository.find({
+        where: {
+          userId: contact.userId,
+          visibility: VaultEntryVisibility.SHARED,
+        },
+        relations: ['user'], // Include vault owner details
+      });
+      
+      // Add vault owner info to each entry
+      const enrichedEntries: SharedVaultEntry[] = vaultEntries.map(entry => ({
+        id: entry.id,
+        title: entry.title,
+        category: entry.category,
+        encryptedContent: entry.encryptedContent,
+        visibility: entry.visibility,
+        createdAt: entry.createdAt,
+        updatedAt: entry.updatedAt,
+        vaultOwner: {
+          email: contact.user.email,
+        }
+      }));
+      
+      allEntries.push(...enrichedEntries);
+    }
+
+    return allEntries;
   }
 
   async remove(userId: string) {
@@ -73,9 +211,12 @@ export class TrustedContactsService {
     return { success: true };
   }
 
-  async requestAccess(contactEmail: string) {
+  async requestAccess(requestingUserEmail: string, vaultOwnerEmail: string) {
     const trustedContact = await this.trustedContactRepository.findOne({
-      where: { contactEmail },
+      where: { 
+        contactEmail: requestingUserEmail,
+        user: { email: vaultOwnerEmail }
+      },
       relations: ['user'],
     });
 
@@ -90,13 +231,13 @@ export class TrustedContactsService {
     // Create notification for vault owner
     await this.notificationsService.createAccessRequestNotification(
       trustedContact.userId,
-      contactEmail,
+      requestingUserEmail,
     );
 
     // Send email to trusted contact
     await this.emailService.sendAccessRequestEmail(
-      contactEmail,
-      trustedContact.user.email,
+      requestingUserEmail,
+      vaultOwnerEmail,
     );
 
     // Check if user has been inactive long enough
@@ -111,8 +252,8 @@ export class TrustedContactsService {
       
       // Send access granted email
       await this.emailService.sendAccessGrantedEmail(
-        contactEmail,
-        trustedContact.user.email,
+        requestingUserEmail,
+        vaultOwnerEmail,
       );
 
       return {
@@ -163,24 +304,6 @@ export class TrustedContactsService {
     }
 
     return trustedContacts;
-  }
-
-  async getSharedEntries(userId: string) {
-    const trustedContact = await this.trustedContactRepository.findOne({
-      where: { contactEmail: userId },
-      relations: ['user'],
-    });
-
-    if (!trustedContact || !trustedContact.isUnlockActive) {
-      return [];
-    }
-
-    return this.vaultEntryRepository.find({
-      where: {
-        userId: trustedContact.userId,
-        visibility: VaultEntryVisibility.SHARED,
-      },
-    });
   }
 
   async grantAccess(userId: string, contactEmail: string) {

@@ -9,7 +9,7 @@ import { Label } from "@/components/ui/label";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { Shield, Mail, Clock, ArrowRight, FileText, Calendar, Eye } from "lucide-react";
+import { Shield, Mail, Clock, ArrowRight, FileText, Calendar, Eye, UserX } from "lucide-react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { trustedContactService } from "@/services/trusted-contact";
@@ -34,10 +34,17 @@ export default function EmergencyAccessPage() {
     },
   });
 
+  // Query to check if user is a trusted contact
+  const { data: accessCheck, isLoading: isCheckingAccess } = useQuery({
+    queryKey: ["trusted-contact-check"],
+    queryFn: () => trustedContactService.checkAccess(),
+  });
+
   // Query for shared entries
   const { data: sharedEntries, isLoading: isLoadingEntries } = useQuery({
     queryKey: ["shared-entries"],
     queryFn: () => trustedContactService.getSharedEntries(),
+    enabled: accessCheck?.isTrustedContact ?? false,
   });
 
   // Query for access status
@@ -84,8 +91,45 @@ export default function EmergencyAccessPage() {
   }, []);
 
   // Loading state
-  if (isLoadingEntries) {
+  if (isCheckingAccess || isLoadingEntries) {
     return <LoadingState />;
+  }
+
+  // If user is not a trusted contact, show the not-authorized view
+  if (!accessCheck?.isTrustedContact) {
+    return (
+      <div className="min-h-screen w-full grid place-items-center p-4 relative bg-background">
+        <Card className="w-full max-w-md">
+          <CardHeader className="space-y-3 text-center pb-8">
+            <div className="w-12 h-12 mx-auto bg-yellow-100 rounded-xl flex items-center justify-center">
+              <UserX className="w-6 h-6 text-yellow-600" />
+            </div>
+            <div className="space-y-2">
+              <h2 className="text-2xl font-bold tracking-tight">Not a Trusted Contact</h2>
+              <p className="text-sm text-muted-foreground">
+                You are not currently designated as a trusted contact for any vault.
+              </p>
+            </div>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="bg-muted p-4 rounded-lg space-y-3">
+              <h3 className="font-medium">What is a Trusted Contact?</h3>
+              <ul className="list-disc list-inside space-y-1 text-sm text-muted-foreground">
+                <li>A person designated to access someone's vault in emergencies</li>
+                <li>Must be explicitly added by a vault owner</li>
+                <li>Can request access if the owner becomes inactive</li>
+                <li>Receives notifications about access requests and grants</li>
+              </ul>
+            </div>
+            <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+              <p className="text-sm text-yellow-800">
+                If you believe you should have access, please ensure the vault owner has added your correct email address as their trusted contact.
+              </p>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    );
   }
 
   // Show shared entries if we have access
@@ -93,6 +137,7 @@ export default function EmergencyAccessPage() {
     return <SharedEntriesView entries={sharedEntries || []} />;
   }
 
+  // Show vault owner information and request access form
   return (
     <div className="min-h-screen w-full grid place-items-center p-4 relative bg-background overflow-hidden">
       {/* Gradient blobs */}
@@ -119,13 +164,49 @@ export default function EmergencyAccessPage() {
             <div className="space-y-1">
               <h2 className="text-2xl font-bold tracking-tight">Emergency Access</h2>
               <p className="text-sm text-muted-foreground">
-                Request access to a vault as a trusted contact
+                You are a trusted contact for the following vaults:
               </p>
             </div>
           </CardHeader>
-          <CardContent>
-            {accessStatus?.status === "pending" ? (
-              <div className="space-y-6">
+          <CardContent className="space-y-6">
+            {/* List vault owners */}
+            <div className="space-y-4">
+              {accessCheck.vaultOwners.map((owner) => (
+                <div key={owner.email} className="p-4 border rounded-lg space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className="font-medium">{owner.email}</span>
+                    <Badge variant={owner.isUnlockActive ? "default" : "secondary"}>
+                      {owner.isUnlockActive ? "Access Granted" : "Pending"}
+                    </Badge>
+                  </div>
+                  <div className="text-sm text-muted-foreground">
+                    <div className="flex items-center gap-2">
+                      <Clock className="h-4 w-4" />
+                      <span>Unlock after {owner.unlockAfterDays} days of inactivity</span>
+                    </div>
+                    {owner.lastRequestedAt && (
+                      <div className="mt-1">
+                        Last requested: {format(new Date(owner.lastRequestedAt), "PPp")}
+                      </div>
+                    )}
+                  </div>
+                  {!owner.isUnlockActive && (
+                    <Button
+                      className="w-full mt-2"
+                      onClick={() => {
+                        form.setValue("email", owner.email);
+                        onSubmit({ email: owner.email });
+                      }}
+                    >
+                      Request Access
+                    </Button>
+                  )}
+                </div>
+              ))}
+            </div>
+
+            {email && accessStatus && (
+              <div className="space-y-4">
                 <div className="space-y-2">
                   <div className="flex items-center justify-between text-sm">
                     <span className="text-muted-foreground">Access Request Status</span>
@@ -149,50 +230,6 @@ export default function EmergencyAccessPage() {
                   </Button>
                 </div>
               </div>
-            ) : (
-              <>
-                <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="email">Your Email</Label>
-                    <div className="relative">
-                      <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                      <Input
-                        id="email"
-                        type="email"
-                        placeholder="Enter your email address"
-                        className="pl-9"
-                        {...form.register("email")}
-                      />
-                    </div>
-                    {form.formState.errors.email && (
-                      <p className="text-sm text-destructive">
-                        {form.formState.errors.email.message}
-                      </p>
-                    )}
-                  </div>
-                  <Button type="submit" className="w-full" disabled={isPending}>
-                    {isPending ? "Requesting Access..." : "Request Access"}
-                  </Button>
-                </form>
-
-                <div className="mt-8 space-y-6">
-                  <div className="space-y-2">
-                    <h3 className="font-medium text-foreground">What happens next?</h3>
-                    <ul className="list-disc list-inside space-y-1 text-sm text-muted-foreground">
-                      <li>The vault owner will be notified of your request</li>
-                      <li>If they don't respond within the configured time, you'll gain access to shared entries</li>
-                      <li>You'll receive an email notification when access is granted</li>
-                    </ul>
-                  </div>
-                  <div className="space-y-2">
-                    <h3 className="font-medium text-foreground">Important Note</h3>
-                    <p className="text-sm text-muted-foreground">
-                      This feature is designed for emergency situations. Please ensure you're authorized
-                      as a trusted contact before requesting access.
-                    </p>
-                  </div>
-                </div>
-              </>
             )}
           </CardContent>
         </Card>

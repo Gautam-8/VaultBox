@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Put, Delete, Body, UseGuards, Param } from '@nestjs/common';
+import { Controller, Get, Post, Put, Delete, Body, UseGuards, Param, NotFoundException } from '@nestjs/common';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { TrustedContactsService } from './trusted-contacts.service';
 import {
@@ -7,15 +7,32 @@ import {
   RequestAccessDto,
 } from './dto/trusted-contact.dto';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
+import { SharedVaultEntry } from './interfaces/shared-vault-entry.interface';
+import { InjectRepository } from '@nestjs/typeorm';
+import { Repository } from 'typeorm';
+import { User } from '../users/entities/user.entity';
 
 @Controller('trusted-contacts')
 @UseGuards(JwtAuthGuard)
 export class TrustedContactsController {
-  constructor(private readonly trustedContactsService: TrustedContactsService) {}
+  constructor(
+    private readonly trustedContactsService: TrustedContactsService,
+    @InjectRepository(User)
+    private userRepository: Repository<User>,
+  ) {}
 
   @Get()
   async getTrustedContact(@CurrentUser() userId: string) {
     return this.trustedContactsService.findByUser(userId);
+  }
+
+  @Get('check-access')
+  async checkAccess(@CurrentUser() userId: string) {
+    const user = await this.userRepository.findOne({ where: { id: userId } });
+    if (!user) {
+      throw new NotFoundException('User not found');
+    }
+    return this.trustedContactsService.checkTrustedContactAccess(user.email);
   }
 
   @Post()
@@ -48,13 +65,24 @@ export class TrustedContactsController {
   }
 
   @Post('request-access')
-  async requestAccess(@Body('contactEmail') contactEmail: string) {
-    return this.trustedContactsService.requestAccess(contactEmail);
+  async requestAccess(
+    @CurrentUser() userId: string,
+    @Body('vaultOwnerEmail') vaultOwnerEmail: string,
+  ) {
+    const user = await this.userRepository.findOne({ where: { id: userId } });
+    if (!user) {
+      throw new NotFoundException('User not found');
+    }
+    return this.trustedContactsService.requestAccess(user.email, vaultOwnerEmail);
   }
 
   @Get('shared-entries')
-  async getSharedEntries(@CurrentUser() userId: string) {
-    return this.trustedContactsService.getSharedEntries(userId);
+  async getSharedEntries(@CurrentUser() userId: string): Promise<SharedVaultEntry[]> {
+    const user = await this.userRepository.findOne({ where: { id: userId } });
+    if (!user) {
+      throw new NotFoundException('User not found');
+    }
+    return this.trustedContactsService.getSharedEntries(user.email);
   }
 
   @Post('grant-access')
