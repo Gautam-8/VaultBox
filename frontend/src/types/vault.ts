@@ -28,6 +28,7 @@ export interface VaultEntry {
     mimeType: string;
   };
   autoDeleteDate?: string;
+  unlockAfter?: string;
   visibility: VaultEntryVisibility;
   createdAt: string;
   updatedAt: string;
@@ -43,6 +44,7 @@ export interface CreateVaultEntryDto {
   fileSize?: number;
   mimeType?: string;
   autoDeleteDate?: string;
+  unlockAfter?: string;
   visibility?: VaultEntryVisibility;
 }
 

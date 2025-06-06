@@ -78,8 +78,10 @@ import { DateTimePicker } from "@/components/ui/date-time-picker";
 const updateEntrySchema = z.object({
   title: z.string().min(1, "Title is required"),
   category: z.nativeEnum(VaultEntryCategory),
-  content: z.string().min(1, "Content is required"),
+  content: z.string().optional(),
+  file: z.custom<File>().optional(),
   autoDeleteDate: z.date().optional(),
+  unlockAfter: z.date().optional(),
   visibility: z.nativeEnum(VaultEntryVisibility),
 });
 
@@ -169,6 +171,7 @@ export function EntryDetailsDialog({ entry, open, onOpenChange }: EntryDetailsDi
       category: entryDetails.category,
       content: entryDetails.encryptedContent || "",
       autoDeleteDate: entryDetails.autoDeleteDate ? new Date(entryDetails.autoDeleteDate) : undefined,
+      unlockAfter: entryDetails.unlockAfter ? new Date(entryDetails.unlockAfter) : undefined,
       visibility: entryDetails.visibility,
     } : {
       title: "",
@@ -189,7 +192,10 @@ export function EntryDetailsDialog({ entry, open, onOpenChange }: EntryDetailsDi
         
         // Saving animation
         setUpdateStep('saving');
-        await vaultService.updateEntry(entry!.id, values);
+        await vaultService.updateEntry(entry!.id, {
+          ...values,
+          content: values.content || "",
+        });
         await new Promise(resolve => setTimeout(resolve, 1000));
         
         // Success animation
@@ -567,6 +573,25 @@ export function EntryDetailsDialog({ entry, open, onOpenChange }: EntryDetailsDi
                         )}
                       />
 
+                      {form.watch("visibility") === VaultEntryVisibility.UNLOCK_AFTER && (
+                        <FormField
+                          control={form.control}
+                          name="unlockAfter"
+                          render={({ field }) => (
+                            <FormItem className="flex flex-col">
+                              <FormLabel>Unlock After Date and Time</FormLabel>
+                              <FormControl>
+                                <DateTimePicker
+                                  date={field.value}
+                                  onDateChange={field.onChange}
+                                />
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                      )}
+
                       <FormField
                         control={form.control}
                         name="visibility"
@@ -587,6 +612,17 @@ export function EntryDetailsDialog({ entry, open, onOpenChange }: EntryDetailsDi
                                 ))}
                               </SelectContent>
                             </Select>
+                            <p className="text-sm text-muted-foreground mt-2">
+                              {field.value === VaultEntryVisibility.PRIVATE && (
+                                "This entry will be accessible only to you. You can read and update the content"
+                              )}
+                              {field.value === VaultEntryVisibility.SHARED && (
+                                "This entry can be viewed and updated by you, and viewed by your trusted contacts."
+                              )}
+                              {field.value === VaultEntryVisibility.UNLOCK_AFTER && (
+                                "This entry will be viewable and updatable after unlock period, and viewable by your trusted contacts after the unlock period."
+                              )}
+                            </p>
                             <FormMessage />
                           </FormItem>
                         )}

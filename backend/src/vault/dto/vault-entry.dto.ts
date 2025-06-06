@@ -23,13 +23,14 @@ export class CreateVaultEntryDto {
   };
 
   @IsOptional()
-  @IsNumber()
-  unlockAfterDays?: number;
+  @IsDate()
+  @Type(() => Date)
+  autoDeleteDate?: Date;
 
   @IsOptional()
   @IsDate()
   @Type(() => Date)
-  autoDeleteDate?: Date;
+  unlockAfter?: Date;
 
   @IsEnum(VaultEntryVisibility)
   visibility: VaultEntryVisibility;
@@ -67,6 +68,11 @@ export class UpdateVaultEntryDto {
   @IsDate()
   @Type(() => Date)
   autoDeleteDate?: Date;
+
+  @IsOptional()
+  @IsDate()
+  @Type(() => Date)
+  unlockAfter?: Date;
 }
 
 export class DecryptVaultEntryDto {

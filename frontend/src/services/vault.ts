@@ -30,6 +30,7 @@ export interface VaultEntry {
     mimeType: string;
   };
   autoDeleteDate?: Date;
+  unlockAfter?: Date;
   visibility: VaultEntryVisibility;
   createdAt: Date;
   updatedAt: Date;
@@ -44,7 +45,7 @@ export interface CreateVaultEntryDto {
   file?: File;
   contentType?: ContentType;
   autoDeleteDate?: Date;
-  unlockAfterDays?: number;
+  unlockAfter?: Date;
 }
 
 export interface UpdateVaultEntryDto extends CreateVaultEntryDto {}

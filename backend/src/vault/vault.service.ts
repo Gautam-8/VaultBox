@@ -20,6 +20,7 @@ export class VaultService {
       contentType: dto.contentType,
       visibility: dto.visibility,
       autoDeleteDate: dto.autoDeleteDate,
+      unlockAfter: dto.unlockAfter,
       ...(dto.file && {
         file: {
           name: dto.file.originalname,
@@ -75,6 +76,7 @@ export class VaultService {
       category: dto.category ?? entry.category,
       visibility: dto.visibility ?? entry.visibility,
       autoDeleteDate: dto.autoDeleteDate ?? entry.autoDeleteDate,
+      unlockAfter: dto.unlockAfter ?? entry.unlockAfter,
     });
 
     return this.vaultEntryRepository.save(entry);

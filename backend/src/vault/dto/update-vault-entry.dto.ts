@@ -7,5 +7,5 @@ export class UpdateVaultEntryDto {
   visibility?: VaultEntryVisibility;
   file?: Express.Multer.File;
   autoDeleteDate?: Date;
-  unlockAfterDays?: number;
+  unlockAfter?: Date;
 } 

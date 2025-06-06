@@ -54,20 +54,11 @@ const ACCEPTED_FILE_TYPES = {
 const newEntrySchema = z.object({
   title: z.string().min(1, "Title is required"),
   category: z.nativeEnum(VaultEntryCategory),
-  content: z.string().min(1, "Content is required"),
-  file: z
-    .custom<File>((v) => v instanceof File, {
-      message: "Invalid file",
-    })
-    .refine((file) => !file || file.size <= MAX_FILE_SIZE, "File size must be less than 50MB")
-    .refine(
-      (file) => !file || Object.keys(ACCEPTED_FILE_TYPES).includes(file.type),
-      "File type not supported"
-    )
-    .optional(),
+  content: z.string().optional(),
+  file: z.custom<File>().optional(),
   autoDeleteDate: z.date().optional(),
+  unlockAfter: z.date().optional(),
   visibility: z.nativeEnum(VaultEntryVisibility),
-  unlockAfterDays: z.number().optional(),
 });
 
 type NewEntryFormValues = z.infer<typeof newEntrySchema>;
@@ -101,8 +92,9 @@ export function NewEntryDialog() {
         if (values.autoDeleteDate) {
           formData.append("autoDeleteDate", values.autoDeleteDate.toISOString());
         }
-        if (values.unlockAfterDays) {
-          formData.append("unlockAfterDays", values.unlockAfterDays.toString());
+        
+        if (values.unlockAfter) {
+          formData.append("unlockAfter", values.unlockAfter.toISOString());
         }
         
         return vaultService.createEntry(formData);
@@ -285,7 +277,7 @@ export function NewEntryDialog() {
               control={form.control}
               name="autoDeleteDate"
               render={({ field }) => (
-                <FormItem className="flex flex-col">
+                <FormItem>
                   <FormLabel>Auto-Delete Date and Time (Optional)</FormLabel>
                   <FormControl>
                     <DateTimePicker
@@ -297,6 +289,25 @@ export function NewEntryDialog() {
                 </FormItem>
               )}
             />
+
+            {form.watch("visibility") === VaultEntryVisibility.UNLOCK_AFTER && (
+              <FormField
+                control={form.control}
+                name="unlockAfter"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Unlock After Date and Time</FormLabel>
+                    <FormControl>
+                      <DateTimePicker
+                        date={field.value}
+                        onDateChange={field.onChange}
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            )}
 
             <FormField
               control={form.control}
@@ -318,32 +329,21 @@ export function NewEntryDialog() {
                       ))}
                     </SelectContent>
                   </Select>
+                  <p className="text-sm text-muted-foreground mt-2">
+                    {field.value === VaultEntryVisibility.PRIVATE && (
+                      "This entry will be accessible only to you. You can read and update the content"
+                    )}
+                    {field.value === VaultEntryVisibility.SHARED && (
+                      "This entry can be viewed and updated by you, and viewed by your trusted contacts."
+                    )}
+                    {field.value === VaultEntryVisibility.UNLOCK_AFTER && (
+                      "This entry will be viewable and updatable after unlock period, and viewable by your trusted contacts after the unlock period."
+                    )}
+                  </p>
                   <FormMessage />
                 </FormItem>
               )}
             />
-
-            {visibility === VaultEntryVisibility.UNLOCK_AFTER && (
-              <FormField
-                control={form.control}
-                name="unlockAfterDays"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Days Until Unlock</FormLabel>
-                    <FormControl>
-                      <Input
-                        type="number"
-                        min={1}
-                        placeholder="Enter number of days"
-                        {...field}
-                        onChange={(e) => field.onChange(Number(e.target.value))}
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-            )}
 
             <div className="flex justify-end space-x-2 pt-4">
               <Button

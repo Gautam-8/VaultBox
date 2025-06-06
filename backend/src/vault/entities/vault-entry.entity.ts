@@ -66,6 +66,9 @@ export class VaultEntry {
   @Column({ nullable: true })
   autoDeleteDate?: Date;
 
+  @Column({ nullable: true })
+  unlockAfter?: Date;
+
   @CreateDateColumn()
   createdAt: Date;
 
