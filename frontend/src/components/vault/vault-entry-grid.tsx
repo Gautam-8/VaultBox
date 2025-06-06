@@ -198,106 +198,85 @@ export function VaultEntryGrid() {
                   transition={{ duration: 0.2, delay: index * 0.05 }}
                 >
                   <Card 
-                    className="overflow-hidden transition-all duration-200 hover:shadow-lg hover:border-primary/50 h-[180px] flex flex-col group/card relative"
+                    className="h-[190px] p-3 flex flex-col cursor-pointer hover:shadow-lg hover:border-primary/50 transition-all duration-200"
                     onClick={() => handleEntryClick(entry)}
                   >
-                    <CardHeader className="space-y-2 p-3">
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-2 flex-wrap">
-                          <Badge 
-                            variant="secondary"
-                            className={cn(
-                              "h-6 px-2 py-0 text-xs font-medium",
-                              statusConfig[entry.visibility].color
-                            )}
-                          >
-                            <StatusIcon className="mr-1 h-3 w-3" />
-                            {statusConfig[entry.visibility].label}
-                          </Badge>
-                          {entry.contentType === ContentType.FILE && (
-                            <Badge variant="outline" className="h-6 px-2 py-0">
-                              <File className="mr-1 h-3 w-3" />
-                              {entry.file?.name.split('.').pop()?.toUpperCase()}
-                              {entry.file && (
-                                <span className="ml-1 opacity-60">
-                                  {formatFileSize(entry.file.size)}
-                                </span>
-                              )}
-                            </Badge>
-                          )}
-                        </div>
+                    {/* Row 1: Category, Visibility & Lock */}
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-3">
                         <div className="flex items-center gap-1.5">
-                          <button 
-                            className="h-6 w-6 rounded-md hover:bg-muted flex items-center justify-center"
-                            title={entry.maskedPreview ? "Show preview" : "Hide preview"}
-                          >
-                            {entry.maskedPreview ? 
-                              <Lock className="h-3.5 w-3.5 text-muted-foreground" /> : 
-                              <Lock className="h-3.5 w-3.5 text-muted-foreground rotate-[15deg]" />
-                            }
-                          </button>
-                        </div>
-                      </div>
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-2">
                           <div className={cn(
-                            "p-1.5 rounded-md",
+                            "p-1 rounded-md",
                             categoryConfig[entry.category].bgColor
                           )}>
                             <CategoryIcon className={cn(
-                              "h-3.5 w-3.5",
+                              "h-3 w-3",
                               categoryConfig[entry.category].color
                             )} />
                           </div>
-                          <span className="text-xs font-medium">
+                          <span className="text-xs">
                             {entry.category}
                           </span>
                         </div>
-                        {entry.visibility === VaultEntryVisibility.UNLOCK_AFTER && entry.unlockAfter && (
-                          <div className="flex items-center gap-1.5">
-                            <Calendar className="h-3.5 w-3.5 text-muted-foreground" />
-                            <span className="text-xs text-muted-foreground">
-                              Unlocks {format(new Date(entry.unlockAfter), "MMM d, h:mm a")}
-                            </span>
-                          </div>
-                        )}
+                        <Badge 
+                          variant="secondary"
+                          className={cn(
+                            "h-5 px-2 text-xs",
+                            statusConfig[entry.visibility].color
+                          )}
+                        >
+                          <StatusIcon className="mr-1 h-3 w-3" />
+                          {statusConfig[entry.visibility].label}
+                        </Badge>
                       </div>
-                    </CardHeader>
-                    <CardContent className="flex-1 flex flex-col p-3 pt-0">
-                      <div className="min-h-0 flex-1">
-                        <h3 className="font-semibold text-sm leading-tight tracking-tight group-hover/card:text-primary transition-colors mb-1.5 truncate pr-6">
-                          {entry.title}
-                          <motion.div
-                            initial={false}
-                            animate={{ rotate: entry.visibility === VaultEntryVisibility.SHARED ? 45 : 0 }}
-                            className="opacity-0 group-hover/card:opacity-100 transition-opacity absolute right-3 top-[4.5rem]"
-                          >
-                            <Share2 className="h-3.5 w-3.5 text-muted-foreground" />
-                          </motion.div>
-                        </h3>
-                        <p className="text-xs text-muted-foreground line-clamp-2">
-                          {entry.maskedPreview}
-                        </p>
-                      </div>
-                      {entry.autoDeleteDate && (
-                        <div className="flex items-center gap-1.5 p-1.5 rounded-md bg-destructive/5 border border-destructive/10 mb-2">
-                          <AlertTriangle className="h-3.5 w-3.5 text-destructive" />
-                          <CountdownTimer 
-                            expiryDate={new Date(entry.autoDeleteDate)}
-                            className="text-xs text-destructive"
-                          />
+                      <Lock className="h-3.5 w-3.5 text-muted-foreground" />
+                    </div>
+
+                    {/* Row 2: Title & File Size */}
+                    <div className="flex justify-between items-center mt-3">
+                      <h3 className="text-sm font-medium truncate flex-1 mr-2">
+                        {entry.title}
+                      </h3>
+                      {entry.contentType === ContentType.FILE && (
+                        <div className="text-xs text-muted-foreground shrink-0">
+                          PDF {formatFileSize(entry.file?.size || 0)}
                         </div>
                       )}
-                      <div className="flex items-center justify-between text-[10px] text-muted-foreground pt-2 border-t gap-2">
-                        <div className="truncate">
-                          Created: {format(new Date(entry.createdAt), "MMM d, yyyy")}
+                    </div>
+
+                    {/* Time Information */}
+                    {entry.visibility === VaultEntryVisibility.UNLOCK_AFTER && entry.unlockAfter && (
+                      <div className="space-y-0 mt-0.5">
+                        <div className="flex items-center gap-1">
+                          <Calendar className="h-3 w-3 text-muted-foreground" />
+                          <span className="text-xs text-muted-foreground">
+                            Unlocks {format(new Date(entry.unlockAfter), "MMM d, h:mm a")}
+                          </span>
                         </div>
-                        <div className="truncate">
-                          Updated: {format(new Date(entry.updatedAt), "MMM d, yyyy")}
+                        <div className="flex items-center gap-1">
+                          <AlertTriangle className="h-3 w-3 text-destructive" />
+                          <span className="text-xs text-destructive">
+                            <CountdownTimer expiryDate={new Date(entry.unlockAfter)} /> remaining
+                          </span>
                         </div>
                       </div>
-                    </CardContent>
-                    <div className="absolute inset-0 bg-gradient-to-t from-background/80 via-background/20 to-background/0 opacity-0 group-hover/card:opacity-100 transition-opacity pointer-events-none" />
+                    )}
+
+                    {/* Auto Delete Timer (only show if not a time lock entry) */}
+                    {entry.autoDeleteDate && entry.visibility !== VaultEntryVisibility.UNLOCK_AFTER && (
+                      <div className="flex items-center gap-1 mt-0.5">
+                        <AlertTriangle className="h-3 w-3 text-destructive" />
+                        <span className="text-xs text-destructive">
+                          <CountdownTimer expiryDate={new Date(entry.autoDeleteDate)} /> remaining
+                        </span>
+                      </div>
+                    )}
+
+                    {/* Row 3: Created & Updated Dates */}
+                    <div className="mt-auto flex justify-between text-[10px] text-muted-foreground">
+                      <span>Created: {format(new Date(entry.createdAt), "MMM d, yyyy")}</span>
+                      <span>Updated: {format(new Date(entry.updatedAt), "MMM d, yyyy")}</span>
+                    </div>
                   </Card>
                 </motion.div>
               );

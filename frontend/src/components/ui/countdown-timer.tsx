@@ -57,7 +57,6 @@ export function CountdownTimer({ expiryDate, className }: CountdownTimerProps) {
       {timeLeft.hours > 0 && `${timeLeft.hours}h `}
       {timeLeft.minutes > 0 && `${timeLeft.minutes}m `}
       {timeLeft.seconds > 0 && `${timeLeft.seconds}s`}
-      {" remaining"}
     </span>
   );
 } 
