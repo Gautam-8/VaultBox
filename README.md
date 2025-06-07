@@ -7,7 +7,7 @@ VaultBox is a modern, secure digital vault application that allows users to safe
 ### 1. Vault Management
 - **Creating Entries**
   - Add sensitive information with end-to-end encryption
-  - Attach files (up to 50KB)
+  - Attach files
   - Categorize entries (Finance, Health, Personal, Notes)
   - Set visibility and access controls
   - Add descriptions and metadata
